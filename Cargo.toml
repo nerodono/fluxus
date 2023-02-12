@@ -1,0 +1,39 @@
+[package]
+name = "neogrok"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+name = "neogrok"
+path = "lib/lib.rs"
+
+[[bin]]
+name = "neogrokd"
+path = "bin/main.rs"
+
+#
+
+[dependencies.mid-protocol]
+path = "packages/mid-protocol"
+version = "1.0.0"
+
+
+[dependencies]
+
+# Workspace
+
+[workspace]
+members = ["packages/*"]
+
+[workspace.dependencies]
+integral-enum = "2.1.1"
+thiserror = "1.0.38"
+
+tokio = { version = "1.25.0", features = [
+    "rt",
+    "rt-multi-thread",
+    "net",
+    "sync",
+    "macros",
+    "io-util",
+] }
