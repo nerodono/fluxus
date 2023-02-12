@@ -13,11 +13,6 @@ path = "bin/main.rs"
 
 #
 
-[dependencies.mid-protocol]
-path = "packages/mid-protocol"
-version = "1.0.0"
-
-
 [dependencies]
 
 # Workspace
@@ -28,6 +23,7 @@ members = ["packages/*"]
 [workspace.dependencies]
 integral-enum = "2.1.1"
 thiserror = "1.0.38"
+serde = { version = "1.0.152", features = ["derive"] }
 
 tokio = { version = "1.25.0", features = [
     "rt",
