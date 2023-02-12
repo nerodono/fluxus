@@ -72,10 +72,9 @@ where
                     algorithm as u8,
                     (buffer_size & 0xff) as u8,
                     (buffer_size >> 8) as u8,
-                    server_name
-                        .len()
-                        .try_into()
-                        .expect("`server_name` is greater than `u8::MAX`"),
+                    server_name.len().try_into().expect(
+                        "length of `server_name is greater than `u8::MAX`",
+                    ),
                 ],
                 server_name.as_bytes(),
             )

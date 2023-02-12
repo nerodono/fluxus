@@ -29,5 +29,8 @@ pub mod proto;
 /// # Middleware errors
 pub mod error;
 
+pub mod ext;
+pub mod prelude;
+
 #[cfg(test)]
 mod tests;

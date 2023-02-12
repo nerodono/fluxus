@@ -7,6 +7,10 @@ use std::{
     pin::Pin,
 };
 
+use mid_compression::{
+    error::SizeRetrievalError,
+    interface::IDecompressor,
+};
 use tokio::io::{
     AsyncRead,
     AsyncReadExt,
@@ -14,13 +18,112 @@ use tokio::io::{
     ReadBuf,
 };
 
-pub struct MidReader<R> {
+use crate::{
+    compression::{
+        DecompressionConstraint,
+        DecompressionStrategy,
+    },
+    error,
+};
+
+pub struct MidReader<R, D> {
     inner: R,
+    decompressor: D,
 }
 
 // Actual reading
 
-impl<R> MidReader<R>
+impl<R, D> MidReader<R, D>
+where
+    R: AsyncReadExt + Unpin,
+    D: IDecompressor,
+{
+    /// Reads compressed pile of bytes from the stream
+    pub async fn read_compressed(
+        &mut self,
+        size: usize,
+        strategy: DecompressionStrategy,
+    ) -> Result<Vec<u8>, error::CompressedReadError> {
+        let buffer = self.read_buffer(size).await?;
+        let dec_size = self.decompressor.try_decompressed_size(&buffer);
+        if matches!(dec_size, Err(SizeRetrievalError::InvalidData)) {
+            return Err(error::CompressedReadError::InvalidData);
+        }
+
+        let mut output = Vec::new();
+
+        match strategy {
+            DecompressionStrategy::ConstrainedConst { constraint } => {
+                match &constraint {
+                    ty @ (DecompressionConstraint::Max(m)
+                    | DecompressionConstraint::MaxSizeMultiplier(
+                        m,
+                    )) => {
+                        let max_size = if matches!(
+                            ty,
+                            DecompressionConstraint::Max(..)
+                        ) {
+                            *m
+                        } else {
+                            size * *m
+                        };
+
+                        if let Ok(dec_size) = dec_size {
+                            if dec_size > max_size {
+                                Err(error::CompressedReadError::ConstraintFailed { constraint: ty.clone() })
+                            } else {
+                                output.reserve(dec_size);
+                                self.decompressor.try_decompress(&buffer, &mut output)
+                                    .map_err(|_| error::CompressedReadError::InvalidData)
+                                    .map(move |_| output)
+                            }
+                        } else {
+                            output.reserve(size);
+                            while output.capacity() < max_size {
+                                if self
+                                    .decompressor
+                                    .try_decompress(&buffer, &mut output)
+                                    .is_ok()
+                                {
+                                    return Ok(output);
+                                }
+
+                                output.reserve(output.capacity());
+                            }
+
+                            Err(error::CompressedReadError::ConstraintFailed { constraint: ty.clone() })
+                        }
+                    }
+                }
+            }
+
+            DecompressionStrategy::Unconstrained => {
+                if let Ok(size) = dec_size {
+                    output.reserve(size);
+                    self.decompressor
+                        .try_decompress(&buffer, &mut output)
+                        .unwrap_or_else(|_| unreachable!());
+                    return Ok(output);
+                }
+
+                output.reserve(size << 1);
+                loop {
+                    if self
+                        .decompressor
+                        .try_decompress(&buffer, &mut output)
+                        .is_ok()
+                    {
+                        return Ok(buffer);
+                    }
+
+                    output.reserve(output.capacity());
+                }
+            }
+        }
+    }
+}
+
+impl<R, D> MidReader<R, D>
 where
     R: AsyncReadExt + Unpin,
 {
@@ -100,7 +203,7 @@ where
 
 // Bufferization & creation related stuff
 
-impl<R> MidReader<R>
+impl<R, D> MidReader<R, D>
 where
     R: AsyncRead,
 {
@@ -109,33 +212,40 @@ where
     pub fn make_buffered(
         self,
         buffer_size: usize,
-    ) -> MidReader<BufReader<R>> {
-        MidReader::new_buffered(self.inner, buffer_size)
+        decompressor: D,
+    ) -> MidReader<BufReader<R>, D> {
+        MidReader::new_buffered(self.inner, decompressor, buffer_size)
     }
 }
 
-impl<R> MidReader<BufReader<R>>
+impl<R, D> MidReader<BufReader<R>, D>
 where
     R: AsyncRead,
 {
     /// Create buffered version of the reader
-    pub fn new_buffered(socket: R, buffer_size: usize) -> Self {
+    pub fn new_buffered(
+        socket: R,
+        decompressor: D,
+        buffer_size: usize,
+    ) -> Self {
         Self {
             inner: BufReader::with_capacity(buffer_size, socket),
+            decompressor,
         }
     }
 
     /// Remove underlying buffer.
     ///
     /// WARNING: buffered data can be lost!
-    pub fn unbuffer(self) -> MidReader<R> {
+    pub fn unbuffer(self) -> MidReader<R, D> {
         MidReader {
             inner: self.inner.into_inner(),
+            decompressor: self.decompressor,
         }
     }
 }
 
-impl<R> MidReader<R> {
+impl<R, D> MidReader<R, D> {
     /// Get shared access to the underlying socket
     pub const fn socket(&self) -> &R {
         &self.inner
@@ -147,7 +257,10 @@ impl<R> MidReader<R> {
     }
 
     /// Simply create reader from the underlying socket type
-    pub const fn new(socket: R) -> Self {
-        Self { inner: socket }
+    pub const fn new(socket: R, decompressor: D) -> Self {
+        Self {
+            inner: socket,
+            decompressor,
+        }
     }
 }
