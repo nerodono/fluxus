@@ -21,7 +21,6 @@ use crate::{
     },
     proto::PacketType,
     utils::{
-        self,
         encode_fwd_header,
         ident_type,
         FancyUtilExt,
@@ -40,6 +39,19 @@ pub struct MidServerWriter<'a, W, C> {
 pub struct MidWriter<W, C> {
     inner: W,
     compressor: C,
+}
+
+impl<'a, W, C> MidClientWriter<'a, W, C>
+where
+    W: AsyncWriteExt + Unpin,
+{
+    /// Write ping request to the server
+    pub fn write_ping(
+        &mut self,
+    ) -> impl Future<Output = io::Result<()>> + '_ {
+        self.inner
+            .write_u8(ident_type(PacketType::Ping as u8))
+    }
 }
 
 impl<'a, W, C> MidServerWriter<'a, W, C>
@@ -98,6 +110,7 @@ where
             .unitize_io()
     }
 
+    /// Write forward packet to the destination socket.
     pub async fn write_forward(
         &mut self,
         client_id: u16,
@@ -263,17 +276,6 @@ where
     ) -> impl Future<Output = io::Result<()>> + '_ {
         self.inner.write_u8(v)
     }
-
-    /// Create client packets writer. Used mainly to
-    /// incapsulate client and server packets
-    pub fn client(&mut self) -> MidClientWriter<'_, W, C> {
-        MidClientWriter { inner: self }
-    }
-
-    /// Same as [`MidWriter::client`] but for server packets
-    pub fn server(&mut self) -> MidServerWriter<'_, W, C> {
-        MidServerWriter { inner: self }
-    }
 }
 
 // Bufferization & creation related stuff
@@ -332,6 +334,17 @@ where
 }
 
 impl<W, C> MidWriter<W, C> {
+    /// Create client packets writer. Used mainly to
+    /// incapsulate client and server packets
+    pub fn client(&mut self) -> MidClientWriter<'_, W, C> {
+        MidClientWriter { inner: self }
+    }
+
+    /// Same as [`MidWriter::client`] but for server packets
+    pub fn server(&mut self) -> MidServerWriter<'_, W, C> {
+        MidServerWriter { inner: self }
+    }
+
     /// Get shared access to the underlying socket.
     pub const fn socket(&self) -> &W {
         &self.inner
