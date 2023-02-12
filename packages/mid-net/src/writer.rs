@@ -1,27 +1,159 @@
 use std::{
     future::Future,
-    io,
+    io::{
+        self,
+        IoSlice,
+    },
 };
 
+use mid_compression::interface::ICompressor;
 use tokio::io::{
     AsyncWrite,
     AsyncWriteExt,
     BufWriter,
 };
 
-/// Write side of the `Middleware` protocol
-pub struct MidWriter<W> {
-    inner: W,
+use crate::{
+    compression::CompressionAlgorithm,
+    proto::PacketType,
+    utils::{
+        self,
+        ident_type,
+        FancyUtilExt,
+    },
+};
+
+pub struct MidClientWriter<'a, W, C> {
+    inner: &'a mut MidWriter<W, C>,
 }
 
-impl<W> MidWriter<W> where W: AsyncWriteExt + Unpin {}
+pub struct MidServerWriter<'a, W, C> {
+    inner: &'a mut MidWriter<W, C>,
+}
 
-// Bufferization & creation related stuff
+/// Write side of the `Middleware` protocol
+pub struct MidWriter<W, C> {
+    inner: W,
+    compressor: C,
+}
 
-impl<W> MidWriter<BufWriter<W>>
+impl<'a, W, C> MidServerWriter<'a, W, C>
 where
-    W: AsyncWrite + Unpin,
+    W: AsyncWriteExt + Unpin,
 {
+    /// Write ping response to the client.
+    pub async fn write_ping(
+        &mut self,
+        server_name: &str,
+        algorithm: CompressionAlgorithm,
+        buffer_size: u16,
+    ) -> io::Result<()> {
+        self.inner
+            .write_two_bufs(
+                &[
+                    ident_type(PacketType::Ping as u8),
+                    algorithm as u8,
+                    (buffer_size & 0xff) as u8,
+                    (buffer_size >> 8) as u8,
+                    server_name
+                        .len()
+                        .try_into()
+                        .expect("`server_name` is greater than `u8::MAX`"),
+                ],
+                server_name.as_bytes(),
+            )
+            .await
+            .unitize_io()
+    }
+}
+
+// Common writer methods
+
+impl<W, C> MidWriter<W, C>
+where
+    W: AsyncWriteExt + Unpin,
+{
+    /// Write two buffers to the socket in vectored mode.
+    ///
+    /// Returns
+    /// - Ok(true) if buffer was wrote using efficient
+    ///   implementation (without allocating buffer with
+    ///   size before.len() + after.len())
+    /// - Ok(false) if buffer was wrote using the fallback
+    ///   way (allocating buffer with size before.len() +
+    ///   after.len() and copying data to it)
+    pub async fn write_two_bufs(
+        &mut self,
+        before: &[u8],
+        after: &[u8],
+    ) -> io::Result<bool> {
+        let (blen, alen) = (before.len(), after.len());
+        let total = blen + alen;
+
+        if !self.inner.is_write_vectored() {
+            let mut buf = Vec::with_capacity(total);
+
+            // SAFETY: this is safe since `Vec::with_capacity` will
+            // return buffer with at least `total` capacity and its data
+            // will be initialized.
+            // Possibly it can be done better? Without buffer
+            // pre-filling
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    before.as_ptr(),
+                    buf.as_mut_ptr(),
+                    before.len(),
+                );
+
+                std::ptr::copy_nonoverlapping(
+                    after.as_ptr(),
+                    buf.as_mut_ptr().offset(
+                        before.len().try_into().expect(
+                            "Failed to copy to a single buffer: too long \
+                             `before` buffer size",
+                        ),
+                    ),
+                    after.len(),
+                );
+
+                buf.set_len(total);
+            };
+
+            self.inner.write_all(&buf).await?;
+            return Ok(false);
+        }
+
+        let mut written: usize = 0;
+        let mut ios = [IoSlice::new(before), IoSlice::new(after)];
+
+        loop {
+            let wrote = self.inner.write_vectored(&ios).await?;
+            written += wrote;
+
+            if written < total {
+                if written >= blen {
+                    break self
+                        .inner
+                        .write_all(&after[(written - blen)..])
+                        .await
+                        .map(|_| true);
+                }
+
+                ios[0] = IoSlice::new(&before[written..]);
+            } else {
+                break Ok(true);
+            }
+        }
+    }
+
+    /// Writes entire buffer into the socket
+    pub fn write_all<'a>(
+        &'a mut self,
+        buf: &'a [u8],
+    ) -> impl Future<Output = io::Result<()>> + 'a {
+        self.inner.write_all(buf)
+    }
+
     /// Same as [`MidWriter::write_u32`] but writes u32
     /// (little endian)
     pub fn write_u32(
@@ -49,6 +181,24 @@ where
         self.inner.write_u8(v)
     }
 
+    /// Create client packets writer. Used mainly to
+    /// incapsulate client and server packets
+    pub fn client(&mut self) -> MidClientWriter<'_, W, C> {
+        MidClientWriter { inner: self }
+    }
+
+    /// Same as [`MidWriter::client`] but for server packets
+    pub fn server(&mut self) -> MidServerWriter<'_, W, C> {
+        MidServerWriter { inner: self }
+    }
+}
+
+// Bufferization & creation related stuff
+
+impl<W, C> MidWriter<BufWriter<W>, C>
+where
+    W: AsyncWrite + Unpin,
+{
     /// Flush underlying write buffer, so remote side will
     /// receive buffered bytes immediately
     pub fn flush(&mut self) -> impl Future<Output = io::Result<()>> + '_ {
@@ -56,14 +206,19 @@ where
     }
 }
 
-impl<W> MidWriter<BufWriter<W>>
+impl<W, C> MidWriter<BufWriter<W>, C>
 where
     W: AsyncWrite,
 {
     /// Create buffered writer.
-    pub fn new_buffered(socket: W, buffer_size: usize) -> Self {
+    pub fn new_buffered(
+        socket: W,
+        compressor: C,
+        buffer_size: usize,
+    ) -> Self {
         Self {
             inner: BufWriter::with_capacity(buffer_size, socket),
+            compressor,
         }
     }
 
@@ -72,14 +227,15 @@ where
     /// WARNING: it is neccessary to call
     /// [`MidWriter::flush`] before the unbuffering so
     /// you're sure that previously buffered data was wrote
-    pub fn unbuffer(self) -> MidWriter<W> {
+    pub fn unbuffer(self) -> MidWriter<W, C> {
         MidWriter {
             inner: self.inner.into_inner(),
+            compressor: self.compressor,
         }
     }
 }
 
-impl<W> MidWriter<W>
+impl<W, C> MidWriter<W, C>
 where
     W: AsyncWrite,
 {
@@ -87,12 +243,12 @@ where
     pub fn make_buffered(
         self,
         buffer_size: usize,
-    ) -> MidWriter<BufWriter<W>> {
-        MidWriter::new_buffered(self.inner, buffer_size)
+    ) -> MidWriter<BufWriter<W>, C> {
+        MidWriter::new_buffered(self.inner, self.compressor, buffer_size)
     }
 }
 
-impl<W> MidWriter<W> {
+impl<W, C> MidWriter<W, C> {
     /// Get shared access to the underlying socket.
     pub const fn socket(&self) -> &W {
         &self.inner
@@ -104,7 +260,10 @@ impl<W> MidWriter<W> {
     }
 
     /// Simply create writer from the underlying socket
-    pub const fn new(socket: W) -> Self {
-        Self { inner: socket }
+    pub const fn new(socket: W, compressor: C) -> Self {
+        Self {
+            inner: socket,
+            compressor,
+        }
     }
 }
