@@ -4,4 +4,8 @@ use integral_enum::IntegralEnum;
 pub enum PacketType {
     Failure = 0,
     Ping = 1,
+
+    Connect = 2,
+    Forward = 3,
+    Disconnect = 4,
 }

@@ -14,10 +14,15 @@ use tokio::io::{
 };
 
 use crate::{
-    compression::CompressionAlgorithm,
+    compression::{
+        CompressionAlgorithm,
+        CompressionStatus,
+        ForwardCompression,
+    },
     proto::PacketType,
     utils::{
         self,
+        encode_fwd_header,
         ident_type,
         FancyUtilExt,
     },
@@ -68,6 +73,84 @@ where
 }
 
 // Common writer methods
+
+impl<W, C> MidWriter<W, C>
+where
+    W: AsyncWriteExt + Unpin,
+    C: ICompressor,
+{
+    async fn write_forward_impl(
+        &mut self,
+        client_id: u16,
+        buffer: &[u8],
+        compressed: bool,
+    ) -> io::Result<()> {
+        let (header, header_size) = encode_fwd_header(
+            client_id,
+            buffer
+                .len()
+                .try_into()
+                .expect("Buffer size exceeds `u16::MAX`"),
+            compressed,
+        );
+        self.write_two_bufs(&header[..header_size], buffer)
+            .await
+            .unitize_io()
+    }
+
+    pub async fn write_forward(
+        &mut self,
+        client_id: u16,
+        buffer: &[u8],
+        compression: ForwardCompression,
+    ) -> io::Result<CompressionStatus> {
+        fn uncompressed(
+            in_: io::Result<()>,
+        ) -> io::Result<CompressionStatus> {
+            in_.map(|()| CompressionStatus::Uncompressed)
+        }
+
+        match compression {
+            ForwardCompression::Compress { with_threshold }
+                if with_threshold <= buffer.len() =>
+            {
+                let mut preallocated = Vec::with_capacity(buffer.len());
+                if let Ok(compressed) = self
+                    .compressor
+                    .try_compress(buffer, &mut preallocated)
+                {
+                    if compressed.get() > buffer.len() {
+                        // Yeah, this is possible
+                        uncompressed(
+                            self.write_forward_impl(
+                                client_id, buffer, false,
+                            )
+                            .await,
+                        )
+                    } else {
+                        let status = CompressionStatus::Compressed {
+                            before: buffer.len(),
+                            after: compressed.get(),
+                        };
+
+                        self.write_forward_impl(client_id, buffer, true)
+                            .await
+                            .map(move |()| status)
+                    }
+                } else {
+                    uncompressed(
+                        self.write_forward_impl(client_id, buffer, false)
+                            .await,
+                    )
+                }
+            }
+            _ => uncompressed(
+                self.write_forward_impl(client_id, buffer, false)
+                    .await,
+            ),
+        }
+    }
+}
 
 impl<W, C> MidWriter<W, C>
 where

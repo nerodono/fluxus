@@ -24,6 +24,30 @@ impl<R> MidReader<R>
 where
     R: AsyncReadExt + Unpin,
 {
+    /// Reads string of prefixed size with max size of
+    /// `u8::MAX`, uses lossy utf8 decoding.
+    pub async fn read_string_prefixed(&mut self) -> io::Result<String> {
+        let size = self.read_u8().await?;
+        self.read_string(size as usize).await
+    }
+
+    /// Reads string of size `bytes_size` with lossy utf8
+    /// decoding.
+    pub async fn read_string(
+        &mut self,
+        bytes_size: usize,
+    ) -> io::Result<String> {
+        self.read_buffer(bytes_size)
+            .await
+            .map(|buf| String::from_utf8_lossy(&buf).into_owned())
+    }
+
+    /// Reads prefixed buffer with max size of `u8::MAX`.
+    pub async fn read_bytes_prefixed(&mut self) -> io::Result<Vec<u8>> {
+        let size = self.read_u8().await?;
+        self.read_buffer(size as usize).await
+    }
+
     /// Read `u8` from the underlying stream
     pub fn read_u8(
         &mut self,

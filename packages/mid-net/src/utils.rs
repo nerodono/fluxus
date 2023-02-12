@@ -1,5 +1,7 @@
 use std::io;
 
+use crate::proto::PacketType;
+
 pub trait FancyUtilExt {
     fn unitize_io(self) -> io::Result<()>;
 }
@@ -31,6 +33,46 @@ pub mod flags {
     pub const fn is_compressed(f: u8) -> bool {
         (f & COMPRESSED) != 0
     }
+}
+
+pub const fn encode_fwd_header(
+    client_id: u16,
+    length: u16,
+    compressed: bool,
+) -> ([u8; 5], usize) {
+    let mut flags: u8 = 0;
+    let mut offset: usize = 1;
+    let mut buf = [0; 5];
+
+    offset += if client_id <= 0xff {
+        flags |= flags::SHORT_CLIENT;
+        buf[offset] = client_id as u8;
+
+        1
+    } else {
+        buf[offset] = (client_id & 0xff) as u8;
+        buf[offset + 1] = (client_id >> 8) as u8;
+
+        2
+    };
+    offset += if length <= 0xff {
+        flags |= flags::SHORT;
+        buf[offset] = length as u8;
+
+        1
+    } else {
+        buf[offset] = (length & 0xff) as u8;
+        buf[offset + 1] = (length >> 8) as u8;
+
+        2
+    };
+
+    if compressed {
+        flags |= flags::COMPRESSED;
+    }
+
+    buf[0] = encode_type(PacketType::Forward as u8, flags);
+    (buf, offset)
 }
 
 /// Encodes packet type to contain both type & flags.

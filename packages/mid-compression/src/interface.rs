@@ -44,3 +44,40 @@ pub trait ICompressor {
     /// Get backend's supported compression levels.
     fn supported_levels(&self) -> std::ops::RangeInclusive<usize>;
 }
+
+impl IDecompressor for () {
+    fn try_decompressed_size(
+        &self,
+        _of: &[u8],
+    ) -> Result<usize, crate::error::SizeRetrievalError> {
+        unimplemented!()
+    }
+
+    fn try_decompress(
+        &mut self,
+        _buffer: &[u8],
+        _to: &mut Vec<u8>,
+    ) -> Result<usize, crate::error::DecompressError> {
+        unimplemented!()
+    }
+}
+
+impl ICompressor for () {
+    fn level(&self) -> usize {
+        0
+    }
+
+    fn set_level(&mut self, _level: usize) {}
+
+    fn try_compress(
+        &mut self,
+        _buf: &[u8],
+        _preallocated: &mut Vec<u8>,
+    ) -> Result<std::num::NonZeroUsize, crate::error::CompressError> {
+        unimplemented!()
+    }
+
+    fn supported_levels(&self) -> std::ops::RangeInclusive<usize> {
+        unimplemented!()
+    }
+}
