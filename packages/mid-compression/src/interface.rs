@@ -2,7 +2,7 @@ use enum_dispatch::enum_dispatch;
 
 /// Interface for the decompressor.
 #[enum_dispatch(PolyDecompressor)]
-pub trait IDecompressor {
+pub trait IDecompressor: Send {
     /// Tries to retrieve decompressed size of the buffer.
     fn try_decompressed_size(
         &self,

@@ -1,5 +1,9 @@
 use tokio::{
-    io::BufReader,
+    io::{
+        AsyncReadExt,
+        AsyncWriteExt,
+        BufReader,
+    },
     net::{
         tcp::{
             ReadHalf,
@@ -13,6 +17,12 @@ use crate::{
     reader::MidReader,
     writer::MidWriter,
 };
+
+pub trait ReaderUnderlyingExt: AsyncReadExt + Unpin {}
+pub trait WriterUnderlyingExt: AsyncWriteExt + Unpin {}
+
+impl<T: AsyncReadExt + Unpin> ReaderUnderlyingExt for T {}
+impl<T: AsyncWriteExt + Unpin> WriterUnderlyingExt for T {}
 
 pub trait MidStreamExt {
     /// Create `Middleware` rw handles from the

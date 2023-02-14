@@ -1,0 +1,11 @@
+[compression.tcp]
+algorithm = "zstd"
+level = 10
+threshold = 64
+
+[server]
+listen = "0.0.0.0:6567"
+threads = 4
+
+[server.bufferization]
+read = 4096

@@ -85,6 +85,8 @@ impl Default for ZStdDctx {
     }
 }
 
+unsafe impl Send for ZStdDctx {}
+
 impl Drop for ZStdDctx {
     fn drop(&mut self) {
         if unsafe { ZSTD_isError(ZSTD_freeDCtx(self.ptr.as_ptr())) } == 1 {

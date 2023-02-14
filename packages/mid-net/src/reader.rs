@@ -24,6 +24,7 @@ use crate::{
         DecompressionStrategy,
     },
     error,
+    utils,
 };
 
 pub struct MidReader<R, D> {
@@ -127,6 +128,12 @@ impl<R, D> MidReader<R, D>
 where
     R: AsyncReadExt + Unpin,
 {
+    /// Reads packet type and decodes it returning pair of
+    /// `u8`'s
+    pub async fn read_raw_packet_type(&mut self) -> io::Result<(u8, u8)> {
+        self.read_u8().await.map(utils::decode_type)
+    }
+
     /// Reads string of prefixed size with max size of
     /// `u8::MAX`, uses lossy utf8 decoding.
     pub async fn read_string_prefixed(&mut self) -> io::Result<String> {

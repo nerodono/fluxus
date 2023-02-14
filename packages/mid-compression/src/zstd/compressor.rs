@@ -95,6 +95,8 @@ impl ZStdCctx {
     }
 }
 
+unsafe impl Send for ZStdCctx {}
+
 impl Drop for ZStdCctx {
     fn drop(&mut self) {
         if unsafe { ZSTD_isError(ZSTD_freeCCtx(self.ptr.as_ptr())) } == 1 {

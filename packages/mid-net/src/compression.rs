@@ -37,6 +37,11 @@ pub enum CompressionStatus {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(u8)]
 pub enum CompressionAlgorithm {
+    #[cfg_attr(feature = "serde", serde(rename = "zstd"))]
     ZStd = 0,
+
+    #[cfg_attr(feature = "serde", serde(rename = "deflate"))]
     Deflate = 1,
 }
+
+pub use mid_compression as impl_;
