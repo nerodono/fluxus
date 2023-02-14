@@ -1,12 +1,24 @@
-[compression.tcp]
-algorithm = "zstd"
-level = 10
-threshold = 64
-
 [server]
 name = "Neogrok/1.0"
 listen = "0.0.0.0:6567"
 threads = 4
 
+universal_password = "nerodono :3"
+
 [server.bufferization]
 read = 4096
+
+[compression.tcp]
+algorithm = "zstd"
+level = 10
+threshold = 64
+
+# Permissions
+
+[permissions.connect.tcp]
+create_server = true
+select_port = false
+
+[permissions.universal_password.tcp]
+create_server = true
+select_port = true

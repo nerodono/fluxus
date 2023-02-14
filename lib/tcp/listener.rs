@@ -59,7 +59,7 @@ pub async fn run_tcp_listener(listener: TcpListener) -> io::Result<()> {
                 config.server.bufferization.read,
             );
 
-            router::run_tcp_packet_router(reader, writer)
+            router::run_tcp_packet_router(reader, writer, address)
                 .await
                 .unwrap_or(());
         });

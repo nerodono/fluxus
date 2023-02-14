@@ -49,9 +49,7 @@ where
     W: AsyncWriteExt + Unpin,
 {
     /// Write ping request to the server
-    pub fn write_ping(
-        &mut self,
-    ) -> impl Future<Output = io::Result<()>> + '_ {
+    pub fn write_ping(&mut self) -> impl Future<Output = io::Result<()>> + '_ {
         self.inner
             .write_u8(ident_type(PacketType::Ping as u8))
     }
@@ -61,6 +59,31 @@ impl<'a, W, C> MidServerWriter<'a, W, C>
 where
     W: AsyncWriteExt + Unpin,
 {
+    /// Writes `update rights` packet to the client.
+    pub async fn write_update_rights(
+        &mut self,
+        new_rights: u16,
+    ) -> io::Result<()> {
+        if new_rights <= 0xff {
+            self.inner
+                .write_all(&[
+                    ident_type(PacketType::UpdateRights as u8),
+                    new_rights as u8,
+                ])
+                .await
+        } else {
+            self.inner
+                .write_all(&[
+                    PacketType::UpdateRights as u8,
+                    (new_rights & 0xff) as u8,
+                    (new_rights >> 8) as u8,
+                ])
+                .await
+        }
+    }
+
+    /// Write failure packet to the client. Indicates that
+    /// something was gone wrong.
     pub async fn write_failure(
         &mut self,
         error: impl Into<ProtocolError>,
@@ -131,9 +154,7 @@ where
         buffer: &[u8],
         compression: ForwardCompression,
     ) -> io::Result<CompressionStatus> {
-        fn uncompressed(
-            in_: io::Result<()>,
-        ) -> io::Result<CompressionStatus> {
+        fn uncompressed(in_: io::Result<()>) -> io::Result<CompressionStatus> {
             in_.map(|()| CompressionStatus::Uncompressed)
         }
 
@@ -149,10 +170,8 @@ where
                     if compressed.get() > buffer.len() {
                         // Yeah, this is possible
                         uncompressed(
-                            self.write_forward_impl(
-                                client_id, buffer, false,
-                            )
-                            .await,
+                            self.write_forward_impl(client_id, buffer, false)
+                                .await,
                         )
                     } else {
                         let status = CompressionStatus::Compressed {
@@ -217,12 +236,11 @@ where
 
                 std::ptr::copy_nonoverlapping(
                     after.as_ptr(),
-                    buf.as_mut_ptr().offset(
-                        before.len().try_into().expect(
+                    buf.as_mut_ptr()
+                        .offset(before.len().try_into().expect(
                             "Failed to copy to a single buffer: too long \
                              `before` buffer size",
-                        ),
-                    ),
+                        )),
                     after.len(),
                 );
 
@@ -310,11 +328,7 @@ where
     W: AsyncWrite,
 {
     /// Create buffered writer.
-    pub fn new_buffered(
-        socket: W,
-        compressor: C,
-        buffer_size: usize,
-    ) -> Self {
+    pub fn new_buffered(socket: W, compressor: C, buffer_size: usize) -> Self {
         Self {
             inner: BufWriter::with_capacity(buffer_size, socket),
             compressor,

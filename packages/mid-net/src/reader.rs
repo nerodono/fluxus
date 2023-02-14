@@ -57,25 +57,24 @@ where
             DecompressionStrategy::ConstrainedConst { constraint } => {
                 match &constraint {
                     ty @ (DecompressionConstraint::Max(m)
-                    | DecompressionConstraint::MaxSizeMultiplier(
-                        m,
-                    )) => {
-                        let max_size = if matches!(
-                            ty,
-                            DecompressionConstraint::Max(..)
-                        ) {
-                            *m
-                        } else {
-                            size * *m
-                        };
+                    | DecompressionConstraint::MaxSizeMultiplier(m)) => {
+                        let max_size =
+                            if matches!(ty, DecompressionConstraint::Max(..)) {
+                                *m
+                            } else {
+                                size * *m
+                            };
 
                         if let Ok(dec_size) = dec_size {
                             if dec_size > max_size {
                                 Err(error::CompressedReadError::ConstraintFailed { constraint: ty.clone() })
                             } else {
                                 output.reserve(dec_size);
-                                self.decompressor.try_decompress(&buffer, &mut output)
-                                    .map_err(|_| error::CompressedReadError::InvalidData)
+                                self.decompressor
+                                    .try_decompress(&buffer, &mut output)
+                                    .map_err(|_| {
+                                        error::CompressedReadError::InvalidData
+                                    })
                                     .map(move |_| output)
                             }
                         } else {
@@ -92,7 +91,9 @@ where
                                 output.reserve(output.capacity());
                             }
 
-                            Err(error::CompressedReadError::ConstraintFailed { constraint: ty.clone() })
+                            Err(error::CompressedReadError::ConstraintFailed {
+                                constraint: ty.clone(),
+                            })
                         }
                     }
                 }
@@ -128,6 +129,22 @@ impl<R, D> MidReader<R, D>
 where
     R: AsyncReadExt + Unpin,
 {
+    /// Skips `nbytes` bytes from the underlying stream.
+    pub async fn skip_n_bytes(&mut self, nbytes: usize) -> io::Result<()> {
+        const CHUNK_SIZE: usize = 128;
+        let mut buf = [0; CHUNK_SIZE];
+        let mut read = 0;
+
+        while read < nbytes {
+            let remaining = (nbytes - read).min(CHUNK_SIZE);
+            let current_read = self.inner.read(&mut buf[..remaining]).await?;
+
+            read += current_read;
+        }
+
+        Ok(())
+    }
+
     /// Reads packet type and decodes it returning pair of
     /// `u8`'s
     pub async fn read_raw_packet_type(&mut self) -> io::Result<(u8, u8)> {
@@ -159,34 +176,25 @@ where
     }
 
     /// Read `u8` from the underlying stream
-    pub fn read_u8(
-        &mut self,
-    ) -> impl Future<Output = io::Result<u8>> + '_ {
+    pub fn read_u8(&mut self) -> impl Future<Output = io::Result<u8>> + '_ {
         self.inner.read_u8()
     }
 
     /// Read `u16` from the underlying stream (little
     /// endian)
-    pub fn read_u16(
-        &mut self,
-    ) -> impl Future<Output = io::Result<u16>> + '_ {
+    pub fn read_u16(&mut self) -> impl Future<Output = io::Result<u16>> + '_ {
         self.inner.read_u16_le()
     }
 
     /// Read `u32` from the underlying stream (little
     /// endian)
-    pub fn read_u32(
-        &mut self,
-    ) -> impl Future<Output = io::Result<u32>> + '_ {
+    pub fn read_u32(&mut self) -> impl Future<Output = io::Result<u32>> + '_ {
         self.inner.read_u32_le()
     }
 
     /// Read `size` bytes from the socket without buffer
     /// pre-filling.
-    pub async fn read_buffer(
-        &mut self,
-        size: usize,
-    ) -> io::Result<Vec<u8>> {
+    pub async fn read_buffer(&mut self, size: usize) -> io::Result<Vec<u8>> {
         let mut buffer: Vec<u8> = Vec::with_capacity(size);
         {
             let mut read_buf =

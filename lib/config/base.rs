@@ -18,6 +18,29 @@ super::config_entry! {
         read: usize,
     }
 
+    struct ConcreteProtocolPermsCfg {
+        /// User is allowed to create the server
+        create_server: bool,
+
+        /// User is allowed to select port for the created server
+        select_port: bool,
+    }
+
+    struct ProtocolPermissionsCfg {
+        /// Permissions for the tcp protocol
+        tcp: ConcreteProtocolPermsCfg,
+    }
+
+    struct PermissionStatesCfg {
+        /// Permissions configuration for just
+        /// connected users
+        connect: ProtocolPermissionsCfg,
+
+        /// Permissions configuration for users
+        /// authorized through the universal password
+        universal_password: ProtocolPermissionsCfg,
+    }
+
     struct ServerCfg {
         /// Address to bind to. For example (in `address:port` format):
         /// - `0.0.0.0:6567`
@@ -33,6 +56,11 @@ super::config_entry! {
 
         /// Server bufferization settings
         bufferization: ServerBufferizationCfg,
+
+        /// Universal password for the authorization.
+        /// Mainly used instead of database based
+        /// authorization
+        universal_password: Option<String>,
     }
 
     struct ProtocolCompressionCfg {
@@ -58,6 +86,9 @@ super::config_entry! {
 
         /// Compression configuration
         compression: CompressionCfg,
+
+        /// Permissions configuration
+        permissions: PermissionStatesCfg,
     }
 }
 
@@ -79,8 +110,7 @@ impl Config {
     /// Tries to load from bunch of paths, returns:
     /// - `Ok((Self, found_path))` if success
     /// - Diagnose struct, can be directly displayed
-    pub fn try_load_paths(
-    ) -> Result<(Self, &'static Path), NotFoundDiagnose> {
+    pub fn try_load_paths() -> Result<(Self, &'static Path), NotFoundDiagnose> {
         let paths = [
             Path::new("config/config.toml"),
             Path::new("/etc/neogrok/config.toml"),
