@@ -4,7 +4,6 @@ level = 10
 threshold = 64
 
 [server]
-name = "Neogrok v1.0"
 listen = "0.0.0.0:6567"
 threads = 4
 
