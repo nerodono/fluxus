@@ -32,13 +32,13 @@ where
             reader.read_raw_packet_type().await?;
         if let Ok(packet_type) = PacketType::try_from(packet_type) {
             match packet_type {
-                PacketType::Connect => {
-                    network::on_ping(&mut writer, config).await
-                }
+                PacketType::Connect => todo!(),
                 PacketType::Disconnect => todo!(),
                 PacketType::Failure => todo!(),
                 PacketType::Forward => todo!(),
-                PacketType::Ping => todo!(),
+                PacketType::Ping => {
+                    network::on_ping(&mut writer, config).await
+                }
             }?
         } else {
             network::on_unknown_packet(
