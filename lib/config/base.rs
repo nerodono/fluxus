@@ -24,6 +24,9 @@ super::config_entry! {
         /// - `127.0.0.1:6567`
         listen: String,
 
+        /// Server name. Used in ping responses.
+        name: String,
+
         /// Number of threads used by the server. If not specified,
         /// then value of `nproc` will be used(number of CPU logical processors)
         threads: Option<usize>,

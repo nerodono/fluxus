@@ -19,7 +19,10 @@ use crate::{
         CompressionStatus,
         ForwardCompression,
     },
-    proto::PacketType,
+    proto::{
+        PacketType,
+        ProtocolError,
+    },
     utils::{
         encode_fwd_header,
         ident_type,
@@ -58,6 +61,18 @@ impl<'a, W, C> MidServerWriter<'a, W, C>
 where
     W: AsyncWriteExt + Unpin,
 {
+    pub async fn write_failure(
+        &mut self,
+        error: impl Into<ProtocolError>,
+    ) -> io::Result<()> {
+        self.inner
+            .write_all(&[
+                ident_type(PacketType::Failure as u8),
+                error.into() as u8,
+            ])
+            .await
+    }
+
     /// Write ping response to the client.
     pub async fn write_ping(
         &mut self,

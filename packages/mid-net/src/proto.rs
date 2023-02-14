@@ -9,3 +9,8 @@ pub enum PacketType {
     Forward = 3,
     Disconnect = 4,
 }
+
+#[derive(IntegralEnum)]
+pub enum ProtocolError {
+    UnknownPacket = 0,
+}
