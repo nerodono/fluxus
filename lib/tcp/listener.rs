@@ -9,9 +9,12 @@ use mid_net::prelude::{
 };
 use tokio::net::TcpListener;
 
-use crate::config::base::{
-    Config,
-    ProtocolCompressionCfg,
+use crate::{
+    config::base::{
+        Config,
+        ProtocolCompressionCfg,
+    },
+    tcp::router,
 };
 
 /// Creates polymorphic compressor/decompressor with
@@ -56,7 +59,7 @@ pub async fn run_tcp_listener(listener: TcpListener) -> io::Result<()> {
                 config.server.bufferization.read,
             );
 
-            super::router::run_tcp_packet_router(reader, writer)
+            router::run_tcp_packet_router(reader, writer)
                 .await
                 .unwrap_or(());
         });
