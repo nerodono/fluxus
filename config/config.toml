@@ -2,11 +2,11 @@
 name = "Neogrok/1.0"
 listen = "0.0.0.0:6567"
 threads = 4
-
 universal_password = "nerodono :3"
 
 [server.bufferization]
 read = 4096
+per_client = 4096
 
 [compression.tcp]
 algorithm = "zstd"
@@ -15,7 +15,19 @@ threshold = 64
 
 # Permissions
 
+## Connect
+
+[permissions.connect.udp]
+create_server = true
+select_port = false
+
 [permissions.connect.tcp]
+create_server = true
+select_port = false
+
+## Universal password
+
+[permissions.universal_password.udp]
 create_server = true
 select_port = false
 

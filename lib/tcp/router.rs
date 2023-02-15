@@ -43,13 +43,15 @@ where
                 p @ (PacketType::Connect
                 | PacketType::Failure
                 | PacketType::UpdateRights) => {
-                    network::on_unexpected(&mut writer, address, p).await
+                    network::on_unexpected(&mut writer, &address, p).await
                 }
 
                 PacketType::CreateServer => {
                     network::on_create_server(
                         &mut writer,
                         &mut reader,
+                        &mut state,
+                        &address,
                         packet_flags,
                     )
                     .await
@@ -60,15 +62,25 @@ where
                         &mut writer,
                         &mut reader,
                         &mut state,
-                        address,
+                        &address,
                         &config.permissions.universal_password,
                         &config.server.universal_password,
                     )
                     .await
                 }
 
-                PacketType::Forward => todo!(),
-                PacketType::Disconnect => todo!(),
+                PacketType::Forward => {
+                    network::on_forward(&mut writer, &mut reader).await
+                }
+                PacketType::Disconnect => {
+                    network::on_disconnect(
+                        &mut writer,
+                        &mut reader,
+                        &mut state,
+                        packet_flags,
+                    )
+                    .await
+                }
 
                 PacketType::Ping => network::on_ping(&mut writer, config).await,
             }?

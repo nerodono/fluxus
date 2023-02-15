@@ -24,7 +24,10 @@ use crate::{
         DecompressionStrategy,
     },
     error,
-    utils,
+    utils::{
+        self,
+        flags,
+    },
 };
 
 pub struct MidReader<R, D> {
@@ -213,6 +216,36 @@ where
         // so `buffer` initialized with exactly `size` items.
         unsafe { buffer.set_len(size) }
         Ok(buffer)
+    }
+
+    /// Reads variadic length of payload from the stream
+    pub fn read_length(
+        &mut self,
+        flags: u8,
+    ) -> impl Future<Output = io::Result<u16>> + '_ {
+        self.read_variadic(flags, flags::SHORT)
+    }
+
+    /// Reads variadic client id from the stream
+    pub fn read_client_id(
+        &mut self,
+        flags: u8,
+    ) -> impl Future<Output = io::Result<u16>> + '_ {
+        self.read_variadic(flags, flags::SHORT_CLIENT)
+    }
+
+    /// Reads `u8` or `u16` from the stream, depending on
+    /// flags.
+    pub async fn read_variadic(
+        &mut self,
+        current_flags: u8,
+        needed: u8,
+    ) -> io::Result<u16> {
+        if (current_flags & needed) == needed {
+            self.read_u8().await.map(|o| o as u16)
+        } else {
+            self.read_u16().await
+        }
     }
 }
 

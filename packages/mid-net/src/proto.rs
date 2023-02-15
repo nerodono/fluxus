@@ -38,4 +38,19 @@ pub enum ProtocolError {
 
     #[error("Functionality is disabled")]
     Disabled = 4,
+
+    #[error("Failed to create TCP listener")]
+    FailedToCreateListener = 5,
+
+    #[error("Failed to retrieve listening port")]
+    FailedToRetrievePort = 6,
+
+    #[error("The server is already created")]
+    AlreadyCreated = 7,
+
+    #[error("The server is not created")]
+    ServerIsNotCreated = 8,
+
+    #[error("Client does not exists")]
+    ClientDoesNotExists = 9,
 }

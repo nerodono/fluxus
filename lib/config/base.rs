@@ -16,6 +16,9 @@ super::config_entry! {
     struct ServerBufferizationCfg {
         /// Buffer for the read side of the socket
         read: usize,
+
+        /// Buffer size per connected client
+        per_client: usize,
     }
 
     struct ConcreteProtocolPermsCfg {
@@ -27,8 +30,11 @@ super::config_entry! {
     }
 
     struct ProtocolPermissionsCfg {
-        /// Permissions for the tcp protocol
+        /// Permissions for the TCP protocol
         tcp: ConcreteProtocolPermsCfg,
+
+        /// Permissions for the UDP protocol
+        udp: ConcreteProtocolPermsCfg,
     }
 
     struct PermissionStatesCfg {

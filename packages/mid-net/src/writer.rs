@@ -25,6 +25,8 @@ use crate::{
     },
     utils::{
         encode_fwd_header,
+        encode_type,
+        flags,
         ident_type,
         FancyUtilExt,
     },
@@ -59,6 +61,17 @@ impl<'a, W, C> MidServerWriter<'a, W, C>
 where
     W: AsyncWriteExt + Unpin,
 {
+    /// Writes port of the created server to the client.
+    pub async fn write_server(&mut self, port: u16) -> io::Result<()> {
+        self.inner
+            .write_all(&[
+                ident_type(PacketType::CreateServer as u8),
+                (port & 0xff) as u8,
+                (port >> 8) as u8,
+            ])
+            .await
+    }
+
     /// Writes `update rights` packet to the client.
     pub async fn write_update_rights(
         &mut self,
@@ -67,14 +80,14 @@ where
         if new_rights <= 0xff {
             self.inner
                 .write_all(&[
-                    ident_type(PacketType::UpdateRights as u8),
+                    encode_type(PacketType::UpdateRights as u8, flags::SHORT),
                     new_rights as u8,
                 ])
                 .await
         } else {
             self.inner
                 .write_all(&[
-                    PacketType::UpdateRights as u8,
+                    ident_type(PacketType::UpdateRights as u8),
                     (new_rights & 0xff) as u8,
                     (new_rights >> 8) as u8,
                 ])
