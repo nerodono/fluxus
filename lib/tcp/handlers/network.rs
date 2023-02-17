@@ -22,7 +22,7 @@ use mid_net::{
 use tokio::net::TcpListener;
 
 use super::{
-    message::SlaveMessage,
+    message_types::SlaveMessage,
     utils::send_slave_message_to,
 };
 use crate::{

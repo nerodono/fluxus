@@ -6,7 +6,7 @@ use mid_net::{
     writer::MidWriter,
 };
 
-use super::message::SlaveMessage;
+use super::message_types::SlaveMessage;
 use crate::tcp::state::State;
 
 /// Utility function for communication with the slaves.

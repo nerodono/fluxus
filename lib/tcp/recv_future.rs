@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use super::handlers::message::MasterMessage;
+use super::handlers::message_types::MasterMessage;
 
 pub enum MasterRecvFuture<Fut> {
     Poll(Fut),

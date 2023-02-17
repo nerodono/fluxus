@@ -16,7 +16,7 @@ use mid_net::{
 
 use super::{
     handlers::{
-        message::MasterMessage,
+        message_types::MasterMessage,
         network,
     },
     state::State,

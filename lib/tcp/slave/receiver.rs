@@ -10,7 +10,7 @@ use tokio::{
 
 use crate::{
     config::base::Config,
-    tcp::handlers::message::{
+    tcp::handlers::message_types::{
         MasterMessage,
         SlaveMessage,
     },

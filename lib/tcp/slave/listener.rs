@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::tcp::{
-    handlers::message::{
+    handlers::message_types::{
         MasterMessage,
         ShutdownToken,
     },

@@ -17,7 +17,7 @@ use tokio::sync::{
 };
 
 use super::{
-    handlers::message::{
+    handlers::message_types::{
         MasterMessage,
         ShutdownToken,
         SlaveMessage,
