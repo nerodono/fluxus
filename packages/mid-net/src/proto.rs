@@ -56,4 +56,7 @@ pub enum ProtocolError {
 
     #[error("Decompression of payload failed")]
     DecompressionFailed = 10,
+
+    #[error("Created server was shut down")]
+    ServerWasShutDown = 11,
 }

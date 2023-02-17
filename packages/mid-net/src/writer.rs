@@ -61,6 +61,15 @@ impl<'a, W, C> MidServerWriter<'a, W, C>
 where
     W: AsyncWriteExt + Unpin,
 {
+    /// Write connected packet
+    pub fn write_connected(
+        &mut self,
+        id: u16,
+    ) -> impl Future<Output = io::Result<()>> + '_ {
+        self.inner
+            .write_client_id(id, PacketType::Connect)
+    }
+
     /// Writes port of the created server to the client.
     pub async fn write_server(&mut self, port: u16) -> io::Result<()> {
         self.inner
@@ -215,6 +224,34 @@ impl<W, C> MidWriter<W, C>
 where
     W: AsyncWriteExt + Unpin,
 {
+    /// Write disconnect packet to the destination socket
+    pub fn write_disconnected(
+        &mut self,
+        id: u16,
+    ) -> impl Future<Output = io::Result<()>> + '_ {
+        self.write_client_id(id, PacketType::Disconnect)
+    }
+
+    pub(crate) async fn write_client_id(
+        &mut self,
+        id: u16,
+        pkt_type: PacketType,
+    ) -> io::Result<()> {
+        let mut buf = [0; 3];
+        let (length, flags) = if id <= 0xff {
+            buf[1] = id as u8;
+            (2, flags::SHORT_CLIENT)
+        } else {
+            buf[1] = (id & 0xff) as u8;
+            buf[2] = (id >> 8) as u8;
+            (3, 0)
+        };
+
+        buf[0] = encode_type(pkt_type as u8, flags);
+
+        self.write_all(&buf[..length]).await
+    }
+
     /// Write two buffers to the socket in vectored mode.
     ///
     /// Returns

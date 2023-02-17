@@ -176,6 +176,10 @@ impl CreatedServer {
             Err(())
         }
     }
+
+    pub fn create_client(&mut self, id: u16, tx: flume::Sender<SlaveMessage>) {
+        assert!(self.map.insert(id, tx).is_none(), "Report this on github");
+    }
 }
 
 impl Drop for CreatedServer {

@@ -17,6 +17,7 @@ use mid_net::{
 use super::{
     handlers::{
         message_types::MasterMessage,
+        messages,
         network,
     },
     state::State,
@@ -41,26 +42,42 @@ where
 
     loop {
         tokio::select! {
+            // Receives messages from components
             message = state.recv_master_message() => {
                 match message {
                     Ok(message) => {
                         match message {
                             MasterMessage::Forward { id, data } => {
-                                todo!()
+                                messages::on_forward(
+                                    &mut writer,
+                                    id,
+                                    data,
+                                    config.compression
+                                          .tcp
+                                          .threshold
+                                          .get()
+                                ).await
                             }
 
                             MasterMessage::Connected { id, tx } => {
-                                todo!()
+                                messages::on_connected(
+                                    &mut writer,
+                                    id,
+                                    tx,
+                                    &mut state,
+                                    &address,
+                                )
+                                .await
                             }
 
                             MasterMessage::Disconnected { id } => {
-                                todo!()
+                                messages::on_disconnected(&mut writer, &mut state, id).await
                             }
 
                             MasterMessage::Shutdown => {
-                                todo!()
+                                messages::on_shutdown(&mut writer, &mut state).await
                             }
-                        }
+                        }?
                     }
 
                     Err(e) => {
@@ -74,6 +91,7 @@ where
                 }
             }
 
+            // Receives packets from the network
             packed = reader.read_raw_packet_type() => {
                 let (packet_type, packet_flags) = packed?;
                 if let Ok(packet_type) = PacketType::try_from(packet_type) {

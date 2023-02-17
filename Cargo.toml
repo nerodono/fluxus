@@ -33,7 +33,7 @@ thiserror = { workspace = true }
 num_cpus = "1.15.0"
 toml = "0.7.2"
 lazy_static = "1.4.0"
-flume = "0.10.14"
+flume = { version = "0.10.14", default-features = false, features = ["async"] }
 
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
@@ -57,4 +57,4 @@ tokio = { version = "1.25.0", features = [
     "sync",
     "macros",
     "io-util",
-] }
+], default-features = false }

@@ -21,6 +21,7 @@ pub async fn run_slave_tcp_listener(
     mut token: oneshot::Receiver<ShutdownToken>,
     view: MasterStateView,
 ) {
+    let mut notify = false;
     loop {
         tokio::select! {
             biased;
@@ -38,6 +39,7 @@ pub async fn run_slave_tcp_listener(
                             %error,
                             "Failed to accept incoming connection"
                         );
+                        notify = true;
                         break;
                     }
                 };
@@ -75,8 +77,10 @@ pub async fn run_slave_tcp_listener(
         }
     }
 
-    view.master
-        .send_async(MasterMessage::Shutdown)
-        .await
-        .unwrap_or_default();
+    if notify {
+        view.master
+            .send_async(MasterMessage::Shutdown)
+            .await
+            .unwrap_or_default();
+    }
 }
