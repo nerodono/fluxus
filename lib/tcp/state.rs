@@ -157,7 +157,7 @@ impl CreatedServer {
 
     /// Send forward message to the slave
     pub fn forward(
-        &mut self,
+        &self,
         id: u16,
         data: Vec<u8>,
     ) -> impl Future<Output = Result<(), ()>> + '_ {

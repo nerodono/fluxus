@@ -44,6 +44,10 @@ use crate::{
 pub async fn on_forward<W, R, C, D>(
     writer: &mut MidWriter<W, C>,
     reader: &mut MidReader<R, D>,
+    state: &State,
+    from: &SocketAddr,
+    flags: u8,
+    constraint: DecompressionConstraint,
 ) -> io::Result<()>
 where
     W: WriterUnderlyingExt,
@@ -51,7 +55,53 @@ where
     C: ICompressor,
     D: IDecompressor,
 {
-    todo!()
+    match state.server {
+        Some(ref server) => {
+            // TODO: restrict maximum length
+            let client_id = reader.read_client_id(flags).await?;
+            let length = reader.read_length(flags).await?;
+            let buffer = if flags::is_compressed(flags) {
+                reader
+                    .read_compressed(
+                        length as usize,
+                        DecompressionStrategy::ConstrainedConst { constraint },
+                    )
+                    .await
+            } else {
+                reader
+                    .read_buffer(length as usize)
+                    .await
+                    .map_err(|e| e.into())
+            };
+            let buffer = match buffer {
+                Ok(b) => b,
+                Err(CompressedReadError::Io(error)) => return Err(error),
+                Err(e) => {
+                    tracing::error!(
+                        %from,
+                        "Failed to decompress forward packet: {e}"
+                    );
+                    return Ok(());
+                }
+            };
+
+            if server.forward(client_id, buffer).await.is_err() {
+                writer
+                    .server()
+                    .write_failure(ProtocolError::ClientDoesNotExists)
+                    .await
+            } else {
+                Ok(())
+            }
+        }
+
+        None => {
+            writer
+                .server()
+                .write_failure(ProtocolError::ServerIsNotCreated)
+                .await
+        }
+    }
 }
 
 /// Called when `disconnected` packet arrived

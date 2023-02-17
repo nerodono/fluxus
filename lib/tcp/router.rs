@@ -70,7 +70,16 @@ where
                 }
 
                 PacketType::Forward => {
-                    network::on_forward(&mut writer, &mut reader).await
+                    network::on_forward(
+                        &mut writer,
+                        &mut reader,
+                        &state,
+                        packet_flags,
+                        DecompressionConstraint::Max(
+                            config.server.bufferization.read,
+                        ),
+                    )
+                    .await
                 }
                 PacketType::Disconnect => {
                     network::on_disconnect(

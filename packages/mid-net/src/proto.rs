@@ -53,4 +53,7 @@ pub enum ProtocolError {
 
     #[error("Client does not exists")]
     ClientDoesNotExists = 9,
+
+    #[error("Decompression of payload failed")]
+    DecompressionFailed = 10,
 }
