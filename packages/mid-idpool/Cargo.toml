@@ -2,6 +2,8 @@
 name = "mid-idpool"
 version = "1.0.0"
 edition = "2021"
+description = "Common id pool implementations for the `middleware` protocol users"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
