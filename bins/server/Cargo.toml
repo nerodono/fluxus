@@ -1,0 +1,23 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "neogrokd"
+path = "bin/main.rs"
+
+[lib]
+name = "neogrok"
+path = "src/lib.rs"
+
+[dependencies.appconf]
+version = "0.1.0"
+path = "../../packages/appconf"
+
+[dependencies.toml]
+version = "0.7.2"
+
+[dependencies.serde]
+version = "1.0.152"
+features = ["derive"]

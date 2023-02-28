@@ -1,0 +1,3 @@
+[server]
+listen = "0.0.0.0:6567"
+universal_password = "nero :3"
