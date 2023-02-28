@@ -21,10 +21,10 @@ pub fn decl_config_impl(
         }
     };
 
-    let debug = if args.no_debug.unwrap_or(false) {
-        quote!()
-    } else {
+    let debug = if args.debug.unwrap_or(true) {
         quote!(Debug,)
+    } else {
+        quote!()
     };
 
     let body = syn::parse_macro_input!(body as syn::Item);

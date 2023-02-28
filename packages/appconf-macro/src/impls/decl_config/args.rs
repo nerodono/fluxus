@@ -18,7 +18,7 @@ pub struct LoaderPaths {
 #[derive(Debug, FromMeta)]
 pub struct ItemArgs {
     pub loader: Option<ConfigFileLoader>,
-    pub no_debug: Option<bool>,
+    pub debug: Option<bool>,
 }
 
 impl From<ConfigFileLoader> for LoaderPaths {
