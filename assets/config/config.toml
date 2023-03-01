@@ -1,3 +1,5 @@
 [server]
 listen = "0.0.0.0:6567"
+
+name = "Neogrok/1.0"
 universal_password = "nero :3"

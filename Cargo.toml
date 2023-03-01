@@ -3,3 +3,4 @@ members = ["packages/*", "bins/*"]
 
 [workspace.dependencies]
 thiserror = "1.0.38"
+serde = { version = "1.0.152", features = ["derive"] }

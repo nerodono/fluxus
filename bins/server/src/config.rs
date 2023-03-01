@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-pub use appconf::interface::*;
+pub use appconf::interface::ParserFunctionality;
 use appconf::macros::decl;
 
 #[decl]
