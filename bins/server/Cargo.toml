@@ -21,3 +21,6 @@ version = "0.7.2"
 [dependencies.serde]
 version = "1.0.152"
 features = ["derive"]
+
+[dependencies]
+mimalloc = { workspace = true }

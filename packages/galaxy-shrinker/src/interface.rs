@@ -4,6 +4,8 @@ use crate::error;
 
 /// Generic trait for the compression routines
 pub trait Compressor {
+    const STUB: bool = false;
+
     /// Tries to compress supplied buffer to the `dst`
     /// buffer returning compressed size.
     fn try_compress(
