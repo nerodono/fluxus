@@ -4,17 +4,39 @@ use std::{
         Future,
     },
     io,
+    num::{
+        NonZeroU16,
+        NonZeroUsize,
+    },
     pin::Pin,
 };
 
-use galaxy_net_raw::packet_type::PacketFlags;
+use galaxy_net_raw::{
+    packet_type::{
+        PacketFlags,
+        PacketType,
+    },
+    related::Protocol,
+};
+use galaxy_shrinker::interface::Decompressor;
 use tokio::io::{
     AsyncReadExt,
     ReadBuf,
 };
 
-use super::impl_::GalaxyReader;
-use crate::__raw_impl;
+use super::{
+    impl_::GalaxyReader,
+    ReadResult,
+};
+use crate::{
+    __raw_impl,
+    error::ReadError,
+    schemas::{
+        ForwardPacketDescriptor,
+        ServerDescriptor,
+        StartedServerDescriptor,
+    },
+};
 
 pub trait ReadExt: AsyncReadExt + Unpin {}
 impl<T: AsyncReadExt + Unpin> ReadExt for T {}
@@ -23,7 +45,174 @@ pub struct RawReader<'a, R, D> {
     pub(crate) stream: &'a mut GalaxyReader<R, D>,
 }
 
+pub struct ServerReader<'a, R, D> {
+    pub(crate) raw: RawReader<'a, R, D>,
+}
+
+pub struct ClientReader<'a, R, D> {
+    pub(crate) raw: RawReader<'a, R, D>,
+}
+
+pub struct CommonReader<'a, R, D> {
+    pub(crate) raw: RawReader<'a, R, D>,
+}
+
+//
+
+impl<'a, R: ReadExt, D: Decompressor> CommonReader<'a, R, D> {
+    pub async fn read_forward(
+        &mut self,
+        flags: PacketFlags,
+        max_size: NonZeroUsize,
+    ) -> ReadResult<ForwardPacketDescriptor> {
+        let client_id = self.raw.read_client_id(flags).await?;
+        let length = self.raw.read_length(flags).await? as usize;
+        if length > max_size.get() {
+            return Err(ReadError::TooLongBufferSize {
+                expected: max_size,
+                got: length,
+            });
+        }
+
+        let mut buffer = self.raw.read_buffer(length).await?;
+
+        if flags.intersects(PacketFlags::COMPRESSED) {
+            let decompressor = self.raw.decompressor_mut();
+            if let Some(dec_size) = decompressor.try_get_size(&buffer)
+            {
+                if dec_size > max_size {
+                    return Err(ReadError::TooLongBufferSize {
+                        expected: max_size,
+                        got: length,
+                    });
+                }
+
+                // TODO: don't check size twice
+                let buffer_allocator: fn(
+                    Option<NonZeroUsize>,
+                )
+                    -> Option<_> = |determined_size| {
+                    determined_size
+                        .map(|c| Vec::with_capacity(c.get()))
+                };
+
+                buffer = decompressor
+                    .try_decompress(&buffer, buffer_allocator)?;
+            } else {
+                todo!("Fail to retrieve decompressed size")
+            }
+        }
+
+        Ok(ForwardPacketDescriptor { client_id, buffer })
+    }
+}
+
+//
+
+impl<'a, R: ReadExt, D> ClientReader<'a, R, D> {
+    /// Read [`StartedServerDescriptor`] from the stream.
+    pub async fn read_server(
+        &mut self,
+        flags: PacketFlags,
+    ) -> ReadResult<StartedServerDescriptor> {
+        if flags.intersects(PacketFlags::SHORT_C) {
+            Ok(StartedServerDescriptor { at_port: None })
+        } else if flags.intersects(PacketFlags::SHORT_C) {
+            Ok(StartedServerDescriptor {
+                at_port: NonZeroU16::new(
+                    self.raw.read_u8().await? as u16,
+                ),
+            })
+        } else {
+            Ok(StartedServerDescriptor {
+                at_port: NonZeroU16::new(self.raw.read_u16().await?),
+            })
+        }
+    }
+}
+
+//
+
+impl<'a, R: ReadExt, D> ServerReader<'a, R, D> {
+    /// Read [`ServerDescriptor`] from the stream.
+    pub async fn read_server(
+        &mut self,
+        flags: PacketFlags,
+    ) -> ReadResult<ServerDescriptor> {
+        let protocol = if flags.intersects(PacketFlags::SHORT_C) {
+            Protocol::Tcp
+        } else {
+            let supplied = self.raw.read_u8().await?;
+            Protocol::try_from(supplied).map_err(|()| {
+                ReadError::UnknownProtocol { supplied }
+            })?
+        };
+
+        let port = if flags.intersects(PacketFlags::SHORT) {
+            None
+        } else {
+            NonZeroU16::new(self.raw.read_u16().await?)
+        };
+
+        Ok(ServerDescriptor { protocol, port })
+    }
+}
+
+//
+
 impl<'a, R: ReadExt, D> RawReader<'a, R, D> {
+    /// Same as [`RawReader::read_packet_type`], but returns
+    /// [`ReadError::Unexpected`] if read packet was not
+    /// `packet_type`.
+    pub async fn expect_packet(
+        &mut self,
+        packet_type: PacketType,
+    ) -> ReadResult<(PacketType, PacketFlags)> {
+        self.read_packet_type()
+            .await
+            .and_then(|(got, flags)| {
+                if got != packet_type {
+                    Err(ReadError::Unexpected {
+                        got,
+                        expected: packet_type,
+                    })
+                } else {
+                    Ok((got, flags))
+                }
+            })
+    }
+
+    /// Read and decode packet type.
+    pub async fn read_packet_type(
+        &mut self,
+    ) -> ReadResult<(PacketType, PacketFlags)> {
+        let packed = self.read_u8().await?;
+        PacketType::try_decode(packed)
+            .ok_or(ReadError::UnknownPacketType { type_: packed })
+    }
+
+    /// Same as [`RawReader::read_variadic`], but with
+    /// pre-filled `need` argument with
+    /// [`PacketFlags::SHORT`]
+    pub async fn read_length(
+        &mut self,
+        flags: PacketFlags,
+    ) -> io::Result<u16> {
+        self.read_variadic(flags, PacketFlags::SHORT)
+            .await
+    }
+
+    /// Same as [`RawReader::read_variadic`], but with
+    /// pre-filled `need` argument with
+    /// [`PacketFlags::SHORT_C`].
+    pub async fn read_client_id(
+        &mut self,
+        flags: PacketFlags,
+    ) -> io::Result<u16> {
+        self.read_variadic(flags, PacketFlags::SHORT_C)
+            .await
+    }
+
     /// Same as [`ReaderRaw::read_buffer_into`] but without
     /// the `into` buffer, just some length.
     ///

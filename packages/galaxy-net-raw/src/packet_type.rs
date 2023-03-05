@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use bitflags::bitflags;
 use integral_enum::IntegralEnum;
 
@@ -15,6 +17,15 @@ bitflags! {
 pub enum PacketType {
     Failure = 0,
     Ping = 1,
+}
+
+impl Display for PacketType {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!("{self:?}"))
+    }
 }
 
 impl PacketType {

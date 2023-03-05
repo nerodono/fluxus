@@ -1,7 +1,10 @@
 pub mod reader;
 pub mod writer;
 
+pub mod error;
 pub mod utils;
+
+pub mod schemas;
 
 #[macro_export]
 #[doc(hidden)]

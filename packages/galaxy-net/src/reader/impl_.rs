@@ -3,12 +3,42 @@ use tokio::io::{
     BufReader,
 };
 
-use super::RawReader;
+use super::scoped::{
+    ClientReader,
+    CommonReader,
+    RawReader,
+    ServerReader,
+};
+use crate::error::ReadError;
+
+pub type ReadResult<T> = Result<T, ReadError>;
 
 /// Read side of the stream
 pub struct GalaxyReader<R, D> {
     pub(crate) stream: R,
     pub(crate) decompressor: D,
+}
+
+impl<R, D> GalaxyReader<R, D> {
+    /// Get `raw` scope of the reader.
+    pub fn raw(&mut self) -> RawReader<'_, R, D> {
+        RawReader { stream: self }
+    }
+
+    /// Get `common` scope of the reader.
+    pub fn common(&mut self) -> CommonReader<'_, R, D> {
+        CommonReader { raw: self.raw() }
+    }
+
+    /// Get `client` scope of the reader.
+    pub fn client(&mut self) -> ClientReader<'_, R, D> {
+        ClientReader { raw: self.raw() }
+    }
+
+    /// Get `server` scope of the reader.
+    pub fn server(&mut self) -> ServerReader<'_, R, D> {
+        ServerReader { raw: self.raw() }
+    }
 }
 
 impl<R, D> GalaxyReader<BufReader<R>, D>
@@ -47,12 +77,6 @@ where
 }
 
 impl<R, D> GalaxyReader<R, D> {
-    /// Creates scoped instance of the raw reader to perform
-    /// raw reads from the stream.
-    pub fn raw(&mut self) -> RawReader<'_, R, D> {
-        RawReader { stream: self }
-    }
-
     /// Replaces current decompressor with new one
     pub fn with_decompressor<Nd>(
         self,
