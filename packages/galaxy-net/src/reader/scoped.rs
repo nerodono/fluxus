@@ -60,6 +60,7 @@ pub struct CommonReader<'a, R, D> {
 //
 
 impl<'a, R: ReadExt, D: Decompressor> CommonReader<'a, R, D> {
+    /// Read [`ForwardPacketDescriptor`] from the stream.
     pub async fn read_forward(
         &mut self,
         flags: PacketFlags,
@@ -99,7 +100,7 @@ impl<'a, R: ReadExt, D: Decompressor> CommonReader<'a, R, D> {
                 buffer = decompressor
                     .try_decompress(&buffer, buffer_allocator)?;
             } else {
-                todo!("Fail to retrieve decompressed size")
+                return Err(ReadError::NoDecompressionSize);
             }
         }
 

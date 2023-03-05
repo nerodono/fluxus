@@ -30,6 +30,9 @@ pub enum ReadError {
     )]
     TooLongBufferSize { expected: NonZeroUsize, got: usize },
 
+    #[error("Could not retrieve decompression size")]
+    NoDecompressionSize,
+
     #[error("Unknown protocol supplied: 0x{supplied:x}")]
     UnknownProtocol { supplied: u8 },
 }
