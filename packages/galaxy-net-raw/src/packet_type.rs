@@ -21,6 +21,9 @@ pub enum PacketType {
     Connect = 2,
     Forward = 3,
     Disconnect = 4,
+
+    Authorize = 5,
+    Server = 6,
 }
 
 impl Display for PacketType {
@@ -33,6 +36,13 @@ impl Display for PacketType {
 }
 
 impl PacketType {
+    /// Encodes packet type to the `u8` with all flags
+    /// turned off (actually just [`PacketType::encode`]
+    /// with [`PacketFlags::empty`] as a flags)
+    pub const fn encode_ident(&self) -> u8 {
+        self.encode(PacketFlags::empty())
+    }
+
     /// Tries to decode packet type and packet flags from
     /// the integer value.
     pub fn try_decode(u: u8) -> Option<(PacketType, PacketFlags)> {

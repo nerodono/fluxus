@@ -24,6 +24,7 @@ use crate::{
     schemas::{
         ForwardPacketDescriptor,
         ServerDescriptor,
+        StartedServerDescriptor,
     },
     utils::encode_forward_header,
 };
@@ -39,8 +40,50 @@ pub struct ClientWriter<'a, W, C> {
     pub(crate) raw: RawWriter<'a, W, C>,
 }
 
+pub struct ServerWriter<'a, W, C> {
+    pub(crate) raw: RawWriter<'a, W, C>,
+}
+
 pub struct CommonWriter<'a, W, C> {
     pub(crate) raw: RawWriter<'a, W, C>,
+}
+
+//
+
+impl<'a, W: WriteExt, C> ServerWriter<'a, W, C> {
+    /// Write [`StartedServerDescriptor`] to the stream
+    /// (including packet type)
+    pub async fn write_server(
+        &mut self,
+        descriptor: StartedServerDescriptor,
+    ) -> io::Result<()> {
+        let at_port = descriptor.at_port.map(|p| p.get());
+        match at_port {
+            Some(port @ ..=0xff) => {
+                self.raw
+                    .write_buffer(&[
+                        PacketType::Server.encode(PacketFlags::SHORT),
+                        port as u8,
+                    ])
+                    .await
+            }
+            Some(port) => {
+                self.raw
+                    .write_buffer(&[
+                        PacketType::Server.encode_ident(),
+                        (port & 0xff) as u8,
+                        (port >> 8) as u8,
+                    ])
+                    .await
+            }
+            None => {
+                self.raw
+                    .write_buffer(&[PacketType::Server
+                        .encode(PacketFlags::SHORT_C)])
+                    .await
+            }
+        }
+    }
 }
 
 //

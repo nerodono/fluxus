@@ -118,7 +118,7 @@ impl<'a, R: ReadExt, D> ClientReader<'a, R, D> {
     ) -> ReadResult<StartedServerDescriptor> {
         if flags.intersects(PacketFlags::SHORT_C) {
             Ok(StartedServerDescriptor { at_port: None })
-        } else if flags.intersects(PacketFlags::SHORT_C) {
+        } else if flags.intersects(PacketFlags::SHORT) {
             Ok(StartedServerDescriptor {
                 at_port: NonZeroU16::new(
                     self.raw.read_u8().await? as u16,
