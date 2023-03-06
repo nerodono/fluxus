@@ -9,6 +9,7 @@ use std::{
 };
 
 use galaxy_net_raw::{
+    error::Failure,
     packet_type::{
         PacketFlags,
         PacketType,
@@ -51,6 +52,19 @@ pub struct CommonWriter<'a, W, C> {
 //
 
 impl<'a, W: WriteExt, C> ServerWriter<'a, W, C> {
+    /// Write failure packet to the stream.
+    pub async fn write_failure(
+        &mut self,
+        failure: Failure,
+    ) -> io::Result<()> {
+        self.raw
+            .write_buffer(&[
+                PacketType::Failure.encode_ident(),
+                failure as u8,
+            ])
+            .await
+    }
+
     /// Write [`StartedServerDescriptor`] to the stream
     /// (including packet type)
     pub async fn write_server(
