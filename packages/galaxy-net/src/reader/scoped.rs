@@ -151,6 +151,8 @@ impl<'a, R: ReadExt, D> ServerReader<'a, R, D> {
 
         let port = if flags.intersects(PacketFlags::SHORT) {
             None
+        } else if flags.intersects(PacketFlags::COMPRESSED) {
+            NonZeroU16::new(self.raw.read_u8().await? as u16)
         } else {
             NonZeroU16::new(self.raw.read_u16().await?)
         };

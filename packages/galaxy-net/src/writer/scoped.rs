@@ -4,22 +4,222 @@ use std::{
         self,
         IoSlice,
     },
+    num::NonZeroUsize,
     ptr,
 };
 
+use galaxy_net_raw::{
+    packet_type::{
+        PacketFlags,
+        PacketType,
+    },
+    related::Protocol,
+};
+use galaxy_shrinker::interface::Compressor;
 use tokio::io::AsyncWriteExt;
 
 use super::GalaxyWriter;
-use crate::__raw_impl;
+use crate::{
+    __raw_impl,
+    schemas::{
+        ForwardPacketDescriptor,
+        ServerDescriptor,
+    },
+    utils::encode_forward_header,
+};
 
 pub trait WriteExt: AsyncWriteExt + Unpin {}
 impl<T: AsyncWriteExt + Unpin> WriteExt for T {}
 
-pub struct RawWriter<W, C> {
-    pub(crate) stream: GalaxyWriter<W, C>,
+pub struct RawWriter<'a, W, C> {
+    pub(crate) stream: &'a mut GalaxyWriter<W, C>,
 }
 
-impl<W: WriteExt, C> RawWriter<W, C> {
+pub struct ClientWriter<'a, W, C> {
+    pub(crate) raw: RawWriter<'a, W, C>,
+}
+
+pub struct CommonWriter<'a, W, C> {
+    pub(crate) raw: RawWriter<'a, W, C>,
+}
+
+//
+
+impl<'a, W: WriteExt, C: Compressor> CommonWriter<'a, W, C> {
+    #[inline(always)]
+    async fn write_forward_impl(
+        &mut self,
+        descriptor: ForwardPacketDescriptor,
+        flags: PacketFlags,
+    ) -> io::Result<()> {
+        let (hdr, hdr_len) = encode_forward_header(
+            descriptor.buffer.len() as u16,
+            descriptor.client_id,
+            flags,
+        );
+        self.raw
+            .write_two_bufs(
+                &hdr[..hdr_len as usize],
+                &descriptor.buffer,
+            )
+            .await
+            .map(|_| ())
+    }
+
+    /// Write [`ForwardPacketDescriptor`] into the stream
+    /// (including packet type).
+    ///
+    /// Note: according to the `compression_threshold`
+    /// packet will be compressed, if:
+    /// - `compress_threshold` is not [`None`]
+    /// - `descriptor.buffer.len() >= compression_threshold`
+    /// - compressed size is lesser than
+    ///   `descriptor.buffer.len()`.
+    ///
+    /// TODO: Implement compression result reporting
+    pub async fn write_forward(
+        &mut self,
+        descriptor: ForwardPacketDescriptor,
+        compress_threshold: Option<NonZeroUsize>,
+    ) -> io::Result<()> {
+        // Is it possible to refactor according to all conditions?
+        match compress_threshold {
+            Some(threshold) => {
+                if descriptor.buffer.len() >= threshold.get() {
+                    let mut dst =
+                        Vec::with_capacity(descriptor.buffer.len());
+
+                    match self
+                        .raw
+                        .compressor_mut()
+                        .try_compress(&descriptor.buffer, &mut dst)
+                    {
+                        Ok(_compressed_size) => {
+                            // TODO: Check `compressed_size <
+                            // descriptor.buffer.len()`
+                            // (Yeah, this is possible due to nature
+                            // of [`Vec::with_capacity`])
+                            self.write_forward_impl(
+                                ForwardPacketDescriptor {
+                                    buffer: dst,
+                                    ..descriptor
+                                },
+                                PacketFlags::COMPRESSED,
+                            )
+                            .await
+                        }
+
+                        // TODO: handle `_e`
+                        Err(_e) => {
+                            self.write_forward_impl(
+                                descriptor,
+                                PacketFlags::empty(),
+                            )
+                            .await
+                        }
+                    }
+                } else {
+                    self.write_forward_impl(
+                        descriptor,
+                        PacketFlags::empty(),
+                    )
+                    .await
+                }
+            }
+            None => {
+                self.write_forward_impl(
+                    descriptor,
+                    PacketFlags::empty(),
+                )
+                .await
+            }
+        }
+    }
+}
+
+impl<'a, W: WriteExt, C> CommonWriter<'a, W, C> {
+    /// Same as [`RawWriter::write_client_id`], but with
+    /// `packet_type` = [`PacketType::Disconnect`]
+    pub async fn write_disconnect(
+        &mut self,
+        client_id: u16,
+    ) -> io::Result<()> {
+        self.raw
+            .write_client_id(PacketType::Disconnect, client_id)
+            .await
+    }
+}
+
+//
+
+impl<'a, W: WriteExt, C> ClientWriter<'a, W, C> {
+    /// Write server descriptor to the stream (including
+    /// packet type).
+    pub async fn write_server(
+        &mut self,
+        descriptor: ServerDescriptor,
+    ) -> io::Result<()> {
+        let mut buf = [0; 4];
+        let mut flags = PacketFlags::empty();
+        let mut offset = 1;
+
+        offset += if descriptor.protocol == Protocol::Tcp {
+            flags |= PacketFlags::SHORT_C;
+            0
+        } else {
+            buf[offset] = descriptor.protocol as u8;
+            1
+        };
+
+        let port = descriptor.port.map(|i| i.get());
+        offset += match port {
+            Some(0) | None => {
+                flags |= PacketFlags::SHORT;
+                0
+            }
+
+            Some(p @ ..=0xff) => {
+                buf[offset] = p as u8;
+                flags |= PacketFlags::COMPRESSED;
+                1
+            }
+            Some(p) => {
+                buf[offset] = (p & 0xff) as u8;
+                buf[offset + 1] = (p >> 8) as u8;
+                2
+            }
+        };
+
+        self.raw.write_buffer(&buf[..offset]).await
+    }
+}
+
+//
+
+impl<'a, W: WriteExt, C> RawWriter<'a, W, C> {
+    /// Write arbitrary packet that contains only
+    /// `client_id` field.
+    pub async fn write_client_id(
+        &mut self,
+        packet_type: PacketType,
+        id: u16,
+    ) -> io::Result<()> {
+        let flags: PacketFlags;
+        if id <= 0xff {
+            flags = PacketFlags::SHORT_C;
+            self.write_buffer(&[packet_type.encode(flags), id as u8])
+                .await
+        } else {
+            flags = PacketFlags::empty();
+            self.write_buffer(&[
+                packet_type.encode(flags),
+                (id & 0xff) as u8,
+                (id >> 8) as u8,
+            ])
+            .await
+        }
+    }
+
     /// Writes two buffers in at least 1 syscall (fast
     /// path, likely to work).
     ///
@@ -89,15 +289,15 @@ impl<W: WriteExt, C> RawWriter<W, C> {
     }
 
     /// Write supplied buffer into the stream.
-    pub fn write_buffer<'a>(
-        &'a mut self,
-        buffer: &'a [u8],
-    ) -> impl Future<Output = io::Result<()>> + 'a {
+    pub fn write_buffer<'k>(
+        &'k mut self,
+        buffer: &'k [u8],
+    ) -> impl Future<Output = io::Result<()>> + 'k {
         self.stream_mut().write_all(buffer)
     }
 }
 
-impl<W, C> RawWriter<W, C> {
+impl<'a, W, C> RawWriter<'a, W, C> {
     __raw_impl! { @stream<W> stream.stream }
 
     __raw_impl! { @compressor<C> stream.compressor }
