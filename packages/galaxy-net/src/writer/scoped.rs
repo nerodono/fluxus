@@ -52,6 +52,16 @@ pub struct CommonWriter<'a, W, C> {
 //
 
 impl<'a, W: WriteExt, C> ServerWriter<'a, W, C> {
+    /// Write `Connect` packet to the stream.
+    pub async fn write_connect(
+        &mut self,
+        client_id: u16,
+    ) -> io::Result<()> {
+        self.raw
+            .write_client_id(PacketType::Connect, client_id)
+            .await
+    }
+
     /// Write failure packet to the stream.
     pub async fn write_failure(
         &mut self,
