@@ -1,6 +1,31 @@
 use std::num::NonZeroU16;
 
-use galaxy_net_raw::related::Protocol;
+use bitflags::bitflags;
+use galaxy_net_raw::related::{
+    CompressionMethod,
+    Protocol,
+};
+
+bitflags! {
+    pub struct Permissions: u16 {
+        const CAN_CREATE_TCP = 1 << 0;
+        const CAN_SELECT_TCP = 1 << 1;
+    }
+}
+
+pub struct PingResponseDescriptor<'a> {
+    pub server_name: &'a str,
+    pub compression_method: CompressionMethod,
+    pub compression_level: u8,
+    pub compression_threshold: u16,
+    pub read_buffer: usize,
+}
+
+/// Describes authorization request
+#[derive(Debug)]
+pub struct AuthRequestDescriptor {
+    pub universal_password: String,
+}
 
 /// Describes the forward packet.
 #[derive(Debug)]

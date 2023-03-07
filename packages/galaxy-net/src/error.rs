@@ -15,6 +15,9 @@ pub enum ReadError {
     #[error("Decompression error: {0}")]
     DecompressError(#[from] DecompressError),
 
+    #[error("Got invalid rights bit-pattern: 0x{0:x}")]
+    InvalidRights(u16),
+
     #[error("Unknown packet type: {type_}")]
     UnknownPacketType { type_: u8 },
 
@@ -35,4 +38,7 @@ pub enum ReadError {
 
     #[error("Unknown protocol supplied: 0x{supplied:x}")]
     UnknownProtocol { supplied: u8 },
+
+    #[error("Unknown error code received: 0x{code:x}")]
+    UnknownErrorCode { code: u8 },
 }

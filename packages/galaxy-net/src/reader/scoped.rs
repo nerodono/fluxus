@@ -12,6 +12,7 @@ use std::{
 };
 
 use galaxy_net_raw::{
+    error::Failure,
     packet_type::{
         PacketFlags,
         PacketType,
@@ -33,6 +34,7 @@ use crate::{
     error::ReadError,
     schemas::{
         ForwardPacketDescriptor,
+        Permissions,
         ServerDescriptor,
         StartedServerDescriptor,
     },
@@ -111,7 +113,23 @@ impl<'a, R: ReadExt, D: Decompressor> CommonReader<'a, R, D> {
 //
 
 impl<'a, R: ReadExt, D> ClientReader<'a, R, D> {
-    /// Read [`StartedServerDescriptor`] from the stream.
+    /// Reads [`Permissions`] from the stream.
+    pub async fn read_permissions(
+        &mut self,
+    ) -> ReadResult<Permissions> {
+        let val = self.raw.read_u16().await?;
+        Permissions::from_bits(val)
+            .ok_or(ReadError::InvalidRights(val))
+    }
+
+    /// Reads [`Failure`] from the stream.
+    pub async fn read_error_code(&mut self) -> ReadResult<Failure> {
+        let code = self.raw.read_u8().await?;
+        Failure::try_from(code)
+            .map_err(|()| ReadError::UnknownErrorCode { code })
+    }
+
+    /// Reads [`StartedServerDescriptor`] from the stream.
     pub async fn read_server(
         &mut self,
         flags: PacketFlags,
@@ -135,6 +153,13 @@ impl<'a, R: ReadExt, D> ClientReader<'a, R, D> {
 //
 
 impl<'a, R: ReadExt, D> ServerReader<'a, R, D> {
+    /// Reads universal password from the stream
+    pub async fn read_universal_password(
+        &mut self,
+    ) -> io::Result<String> {
+        self.raw.read_string_prefixed().await
+    }
+
     /// Read [`ServerDescriptor`] from the stream.
     pub async fn read_server(
         &mut self,
@@ -216,11 +241,11 @@ impl<'a, R: ReadExt, D> RawReader<'a, R, D> {
             .await
     }
 
-    /// Same as [`ReaderRaw::read_buffer_into`] but without
+    /// Same as [`RawReader::read_buffer_into`] but without
     /// the `into` buffer, just some length.
     ///
     /// Note: Internally it calls the
-    /// [`ReaderRaw::read_buffer_into`], so all requirements
+    /// [`RawReader::read_buffer_into`], so all requirements
     /// and notes will be same for this method.
     pub async fn read_buffer(
         &mut self,
@@ -230,6 +255,17 @@ impl<'a, R: ReadExt, D> RawReader<'a, R, D> {
         self.read_buffer_into(&mut buf, length)
             .await
             .map(|()| buf)
+    }
+
+    /// Reads string from the stream. Length of stream is
+    /// determined by the `u8` prefix (= u8 length).
+    pub async fn read_string_prefixed(
+        &mut self,
+    ) -> io::Result<String> {
+        let length = self.read_u8().await?;
+        let buf = self.read_buffer(length as usize).await?;
+
+        Ok(String::from_utf8_lossy(&buf).into_owned())
     }
 
     /// Reads buffer into the `into`'s vector without

@@ -11,6 +11,10 @@ path = "bin/main.rs"
 name = "neogrok"
 path = "src/lib.rs"
 
+[dependencies.galaxy-net]
+path = "../../packages/galaxy-net"
+version = "0.1.0"
+
 [dependencies.appconf]
 version = "0.1.0"
 path = "../../packages/appconf"
@@ -22,5 +26,13 @@ version = "0.7.2"
 version = "1.0.152"
 features = ["derive"]
 
+[dependencies.tokio]
+workspace = true
+
 [dependencies]
+bitflags = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
 mimalloc = { workspace = true }
+anyhow = "1.0.69"

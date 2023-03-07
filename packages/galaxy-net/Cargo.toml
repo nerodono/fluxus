@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 thiserror = { workspace = true }
+bitflags = { workspace = true }
 
 [dependencies.galaxy-net-raw]
 version = "0.1.0"

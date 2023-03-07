@@ -1,3 +1,6 @@
+pub use galaxy_net_raw as raw;
+pub use galaxy_shrinker as shrinker;
+
 pub mod reader;
 pub mod writer;
 

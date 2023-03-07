@@ -26,18 +26,24 @@ impl<R, D> GalaxyReader<R, D> {
     }
 
     /// Get `common` scope of the reader.
-    pub fn common(&mut self) -> CommonReader<'_, R, D> {
-        CommonReader { raw: self.raw() }
+    pub fn common(
+        raw: RawReader<'_, R, D>,
+    ) -> CommonReader<'_, R, D> {
+        CommonReader { raw }
     }
 
     /// Get `client` scope of the reader.
-    pub fn client(&mut self) -> ClientReader<'_, R, D> {
-        ClientReader { raw: self.raw() }
+    pub fn client(
+        raw: RawReader<'_, R, D>,
+    ) -> ClientReader<'_, R, D> {
+        ClientReader { raw }
     }
 
     /// Get `server` scope of the reader.
-    pub fn server(&mut self) -> ServerReader<'_, R, D> {
-        ServerReader { raw: self.raw() }
+    pub fn server(
+        raw: RawReader<'_, R, D>,
+    ) -> ServerReader<'_, R, D> {
+        ServerReader { raw }
     }
 }
 

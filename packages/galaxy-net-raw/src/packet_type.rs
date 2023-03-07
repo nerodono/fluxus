@@ -24,6 +24,10 @@ pub enum PacketType {
 
     Authorize = 5,
     Server = 6,
+
+    UpdateRights = 7,
+
+    Extended = 31,
 }
 
 impl Display for PacketType {

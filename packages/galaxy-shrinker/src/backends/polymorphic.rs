@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use super::zstd::{
     cctx::*,
     dctx::*,
@@ -12,6 +14,21 @@ pub enum PolymorphicCctx {
 /// Polymorphic context for the decompressor
 pub enum PolymorphicDctx {
     ZStd(ZStdDctx),
+}
+
+impl PolymorphicDctx {
+    /// Create ZStd decompressor
+    pub fn zstd() -> Self {
+        Self::ZStd(ZStdDctx::new())
+    }
+}
+
+impl PolymorphicCctx {
+    /// Create ZStd compressor
+    pub fn zstd(level: NonZeroUsize) -> Self {
+        // TODO: check available compression levels
+        Self::ZStd(ZStdCctx::new(level.try_into().unwrap()))
+    }
 }
 
 impl Decompressor for PolymorphicDctx {

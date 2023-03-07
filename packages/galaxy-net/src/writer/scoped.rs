@@ -24,6 +24,7 @@ use crate::{
     __raw_impl,
     schemas::{
         ForwardPacketDescriptor,
+        PingResponseDescriptor,
         ServerDescriptor,
         StartedServerDescriptor,
     },
@@ -52,6 +53,32 @@ pub struct CommonWriter<'a, W, C> {
 //
 
 impl<'a, W: WriteExt, C> ServerWriter<'a, W, C> {
+    /// Write [`PingResponseDescriptor`] to the stream
+    /// (including packet type).
+    pub async fn write_ping(
+        &mut self,
+        descriptor: PingResponseDescriptor<'_>,
+    ) -> io::Result<()> {
+        let buffer = descriptor
+            .read_buffer
+            .try_into()
+            .unwrap_or(u16::MAX);
+        self.raw
+            .write_two_bufs(
+                &[
+                    PacketType::Ping.encode_ident(),
+                    descriptor.compression_level,
+                    descriptor.compression_method as u8,
+                    (buffer & 0xff) as u8,
+                    (buffer >> 8) as u8,
+                    descriptor.server_name.len() as u8,
+                ],
+                descriptor.server_name.as_bytes(),
+            )
+            .await
+            .map(|_| ())
+    }
+
     /// Write `Connect` packet to the stream.
     pub async fn write_connect(
         &mut self,
@@ -220,6 +247,13 @@ impl<'a, W: WriteExt, C> CommonWriter<'a, W, C> {
 //
 
 impl<'a, W: WriteExt, C> ClientWriter<'a, W, C> {
+    /// Write `Ping` request to the server
+    pub async fn write_ping(&mut self) -> io::Result<()> {
+        self.raw
+            .write_buffer(&[PacketType::Ping.encode_ident()])
+            .await
+    }
+
     /// Write server descriptor to the stream (including
     /// packet type).
     pub async fn write_server(
@@ -343,10 +377,10 @@ impl<'a, W: WriteExt, C> RawWriter<'a, W, C> {
             let wrote =
                 self.stream_mut().write_vectored(&slices).await?;
             written += wrote;
-            if wrote >= plen {
+            if written >= plen {
                 return self
                     .stream_mut()
-                    .write_all(&append[(total - written)..])
+                    .write_all(&append[(written - plen)..])
                     .await
                     .map(true_);
             }

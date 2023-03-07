@@ -9,13 +9,42 @@ use tokio::io::{
     BufWriter,
 };
 
+use super::{
+    ClientWriter,
+    CommonWriter,
+    RawWriter,
+    ServerWriter,
+};
+
 /// Write side of the protocol.
 pub struct GalaxyWriter<W, C> {
     pub(crate) stream: W,
     pub(crate) compressor: C,
 }
 
-impl<W, C> GalaxyWriter<W, C> {}
+impl<W, C> GalaxyWriter<W, C> {
+    pub fn client(
+        raw: RawWriter<'_, W, C>,
+    ) -> ClientWriter<'_, W, C> {
+        ClientWriter { raw }
+    }
+
+    pub fn server(
+        raw: RawWriter<'_, W, C>,
+    ) -> ServerWriter<'_, W, C> {
+        ServerWriter { raw }
+    }
+
+    pub fn common(
+        raw: RawWriter<'_, W, C>,
+    ) -> CommonWriter<'_, W, C> {
+        CommonWriter { raw }
+    }
+
+    pub fn raw(&mut self) -> RawWriter<'_, W, C> {
+        RawWriter { stream: self }
+    }
+}
 
 impl<W, C> GalaxyWriter<BufWriter<W>, C>
 where

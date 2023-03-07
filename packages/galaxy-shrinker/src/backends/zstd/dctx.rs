@@ -93,5 +93,7 @@ impl Drop for ZStdDctx {
     }
 }
 
+unsafe impl Send for ZStdDctx {}
+
 #[negative_impl]
 impl !Sync for ZStdDctx {}

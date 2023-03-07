@@ -1,10 +1,28 @@
 [server]
 listen = "0.0.0.0:6567"
+worker_threads = 2
 
 name = "Neogrok/1.0"
 universal_password = "nero :3"
 
+[server.bufferization]
+read = 4096
+per_client = 4096
+
+# Permissions
+
+[permissions.just_connected.tcp]
+can_create = true
+can_select_port = false
+
+[permissions.universal_password_permit.tcp]
+can_create = true
+can_select_port = true
+
 # Compression algorithms
+
+[compression]
+use = "zstd"
 
 [compression.zstd]
 threshold = 64

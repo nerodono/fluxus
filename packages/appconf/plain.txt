@@ -1,7 +1,0 @@
-#[derive(CfgRegistry)]
-pub struct ConfigRegistry {
-    #[config(
-        paths = ["config.toml", "/etc/server-config.toml"]
-    )]
-    pub server: Server,
-}
