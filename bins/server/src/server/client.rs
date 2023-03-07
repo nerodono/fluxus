@@ -23,8 +23,8 @@ impl Client {
         if let Some(ref mut server) = self.tcp_server {
             server.master_rx.recv().await
         } else {
-            never().await;
-            unreachable!()
+            // Dirty-funny trick
+            match never().await {}
         }
     }
 }
