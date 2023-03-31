@@ -1,20 +1,23 @@
 use std::{
+    future::Future,
     io::{
         self,
         IoSlice,
     },
-    num::NonZeroU8,
+    num::NonZeroU16,
 };
 
-use galaxy_shrinker::interface::Compressor;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    descriptors::PingResponseDescriptor,
+    descriptors::{
+        CreateServerResponseDescriptor,
+        PingResponseDescriptor,
+    },
     raw::{
-        CompressionAlgorithm,
         ErrorCode,
         Packet,
+        PacketFlags,
         PacketType,
     },
 };
@@ -33,6 +36,29 @@ pub struct GalaxyWriter<W, C> {
 pub struct GalaxyServerWriter<'a, W, C>(&'a mut GalaxyWriter<W, C>);
 
 impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
+    pub async fn write_server(
+        &mut self,
+        descriptor: &CreateServerResponseDescriptor,
+    ) -> io::Result<()> {
+        if let Some(port) = descriptor.port.map(NonZeroU16::get) {
+            self.0
+                .write_all(&[
+                    Packet::id(PacketType::CreateServer).encode(),
+                    (port & 0xff) as u8,
+                    (port >> 8) as u8,
+                ])
+                .await
+        } else {
+            self.0
+                .write_all(&[Packet::new(
+                    PacketType::CreateServer,
+                    PacketFlags::COMPRESSED,
+                )
+                .encode()])
+                .await
+        }
+    }
+
     pub async fn write_ping(
         &mut self,
         descriptor: &PingResponseDescriptor<'_>,
@@ -72,6 +98,14 @@ impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
 }
 
 impl<W: Write, C> GalaxyWriter<W, C> {
+    #[inline]
+    fn write_all<'a>(
+        &'a mut self,
+        buf: &'a [u8],
+    ) -> impl Future<Output = io::Result<()>> + 'a {
+        self.raw.write_all(buf)
+    }
+
     async fn write_two_bufs(
         &mut self,
         mut prepend: &[u8],

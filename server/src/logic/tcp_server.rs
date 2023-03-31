@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    net::SocketAddr,
+    sync::Arc,
+};
 
 use idpool::interface::IdPool;
 use rustc_hash::FxHashMap;
@@ -11,16 +14,23 @@ use tokio::sync::{
     Mutex,
 };
 
-use super::command::{
-    MasterCommand,
-    SlaveCommand,
+use super::{
+    command::{
+        MasterCommand,
+        SlaveCommand,
+    },
+    shutdown_token::{
+        shutdown_token,
+        ShutdownListener,
+        ShutdownTrigger,
+    },
 };
 use crate::error::{
     ChanSendError,
     CreateClientError,
 };
 
-pub type TcpIdPool = Mutex<Box<dyn IdPool<Id = u16> + Send>>;
+pub type TcpIdPool = Arc<Mutex<dyn IdPool<Id = u16> + Send>>;
 
 pub struct TcpProxyServer {
     pub send_chan: UnboundedSender<MasterCommand>,
@@ -28,6 +38,10 @@ pub struct TcpProxyServer {
 
     clients: FxHashMap<u16, UnboundedSender<SlaveCommand>>,
     pub pool: Arc<TcpIdPool>,
+
+    address: SocketAddr,
+    creator: SocketAddr,
+    _shutdown_token: ShutdownTrigger,
 }
 
 impl TcpProxyServer {
@@ -54,13 +68,36 @@ impl TcpProxyServer {
         }
     }
 
-    pub fn new(pool: TcpIdPool) -> Self {
+    pub fn new(
+        address: SocketAddr,
+        creator: SocketAddr,
+        pool: TcpIdPool,
+    ) -> (Self, ShutdownListener) {
         let (send_chan, recv_chan) = unbounded_channel();
-        Self {
-            pool: Arc::new(pool),
-            clients: Default::default(),
-            send_chan,
-            recv_chan,
-        }
+        let (trigger, listener) = shutdown_token();
+        (
+            Self {
+                address,
+                creator,
+                pool: Arc::new(pool),
+                clients: Default::default(),
+                send_chan,
+                recv_chan,
+                _shutdown_token: trigger,
+            },
+            listener,
+        )
+    }
+}
+
+impl Drop for TcpProxyServer {
+    fn drop(&mut self) {
+        use owo_colors::OwoColorize;
+
+        tracing::info!(
+            "Shut down {}'s {} server",
+            self.creator.bold(),
+            self.address.bold()
+        );
     }
 }

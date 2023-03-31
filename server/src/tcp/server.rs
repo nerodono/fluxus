@@ -16,6 +16,7 @@ use galaxy_network::{
     },
     writer::GalaxyWriter,
 };
+use idpool::flat::FlatIdPool;
 use owo_colors::OwoColorize;
 use tokio::{
     io::BufReader,
@@ -23,13 +24,21 @@ use tokio::{
         TcpListener,
         TcpStream,
     },
+    sync::Mutex,
 };
 
 use crate::{
     config::Config,
-    logic::user::User,
+    logic::{
+        tcp_server::TcpIdPool,
+        user::User,
+    },
     tcp::network,
 };
+
+fn create_id_pool() -> TcpIdPool {
+    Arc::new(Mutex::new(FlatIdPool::new(0_u16)))
+}
 
 async fn listen_to_stream(
     config: Arc<Config>,
@@ -77,6 +86,7 @@ async fn listen_to_stream(
                     &mut reader,
                     packet,
                     &mut user,
+                    &mut create_id_pool,
                 )
                 .await?;
             }

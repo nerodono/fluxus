@@ -49,6 +49,9 @@ pub enum ErrorCode {
 
     #[error("You don't have access to requested functionality")]
     AccessDenied = 3,
+
+    #[error("Failed to bind to requested address")]
+    FailedToBindAddress,
 }
 
 impl From<Packet> for u8 {
