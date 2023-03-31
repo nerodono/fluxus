@@ -14,7 +14,23 @@ use galaxy_network::{
     },
 };
 
-use crate::config::Config;
+use crate::{
+    config::Config,
+    logic::user::User,
+};
+
+pub async fn server_request<W, C, R, D>(
+    writer: &mut GalaxyWriter<W, C>,
+    reader: &mut GalaxyReader<R, D>,
+    config: &Config,
+    user: User,
+) -> ReadResult<()>
+where
+    W: Write,
+    R: Read,
+{
+    Ok(())
+}
 
 pub async fn ping<W: Write, C>(
     writer: &mut GalaxyWriter<W, C>,

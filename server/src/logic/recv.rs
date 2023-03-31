@@ -7,8 +7,6 @@ use std::{
     },
 };
 
-use flume::RecvError;
-
 use super::command::MasterCommand;
 
 pub enum RecvFuture<F> {
@@ -18,9 +16,9 @@ pub enum RecvFuture<F> {
 
 impl<F> Future for RecvFuture<F>
 where
-    F: Unpin + Future<Output = Result<MasterCommand, RecvError>>,
+    F: Unpin + Future<Output = Option<MasterCommand>>,
 {
-    type Output = Result<MasterCommand, RecvError>;
+    type Output = Option<MasterCommand>;
 
     fn poll(
         self: Pin<&mut Self>,

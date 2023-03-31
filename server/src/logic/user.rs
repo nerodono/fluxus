@@ -1,6 +1,5 @@
 use std::future::Future;
 
-use flume::RecvError;
 use galaxy_network::raw::Rights;
 
 use super::{
@@ -17,12 +16,10 @@ pub struct User {
 impl User {
     #[inline(always)]
     pub fn recv_command(
-        &self,
-    ) -> RecvFuture<
-        impl Unpin + Future<Output = Result<MasterCommand, RecvError>> + '_,
-    > {
-        if let Some(ref proxy) = self.tcp_proxy {
-            RecvFuture::Custom(proxy.recv_chan.recv_async())
+        &mut self,
+    ) -> RecvFuture<impl Future<Output = Option<MasterCommand>> + '_> {
+        if let Some(ref mut proxy) = self.tcp_proxy {
+            RecvFuture::Custom(proxy.recv_chan.recv())
         } else {
             RecvFuture::Pending
         }

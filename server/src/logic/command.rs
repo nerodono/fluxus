@@ -1,4 +1,4 @@
-use flume::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
 pub enum SlaveCommand {
@@ -14,7 +14,7 @@ pub enum MasterCommand {
     },
     Connected {
         id: u16,
-        channel: Sender<SlaveCommand>,
+        channel: UnboundedSender<SlaveCommand>,
     },
     Disconneceted {
         id: u16,

@@ -33,6 +33,7 @@ toml = "0.7.3"
 num_cpus.workspace = true
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
-derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
-flume = { version = "0.10.14", default-features = false, features = ["async"] }
+derive_more = { version = "0.99.17", default-features = false, features = [
+    "display",
+] }
 rustc-hash = "1.1.0"
