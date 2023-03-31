@@ -1,0 +1,29 @@
+[package]
+name = "galaxy-network"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["serde", "tokio"]
+serde = ["dep:serde"]
+tokio = ["dep:tokio", "dep:galaxy-shrinker"]
+
+[dependencies.serde]
+workspace = true
+optional = true
+
+[dependencies.tokio]
+workspace = true
+optional = true
+features = ["net"]
+
+[dependencies.galaxy-shrinker]
+version = "0.1.0"
+path = "../galaxy-shrinker"
+optional = true
+
+[dependencies]
+bitflags = "2.0.2"
+
+thiserror.workspace = true
+integral-enum.workspace = true

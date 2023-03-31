@@ -1,0 +1,38 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "neogrokd"
+path = "bin/main.rs"
+
+[lib]
+name = "neo"
+path = "src/lib.rs"
+
+[dependencies.idpool]
+path = "../crates/idpool"
+version = "0.1.0"
+
+[dependencies.galaxy-network]
+path = "../crates/galaxy-network"
+version = "0.1.0"
+
+[dependencies]
+envy.workspace = true
+integral-enum.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+owo-colors.workspace = true
+eyre.workspace = true
+
+tokio.workspace = true
+
+toml = "0.7.3"
+num_cpus.workspace = true
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
+derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
+flume = { version = "0.10.14", default-features = false, features = ["async"] }
+rustc-hash = "1.1.0"
