@@ -27,6 +27,7 @@ use tokio::{
 
 use crate::{
     config::Config,
+    logic::user::User,
     tcp::network,
 };
 
@@ -46,6 +47,7 @@ async fn listen_to_stream(
         ),
         GalaxyWriter::new(writer, CompressorStub),
     );
+    let mut user = User::new(config.rights.on_connect.to_bits());
 
     loop {
         let packet = match reader.read_packet_type().await {
@@ -68,7 +70,16 @@ async fn listen_to_stream(
                 network::ping(&mut writer, &config).await?;
             }
 
-            PacketType::CreateServer => {}
+            PacketType::CreateServer => {
+                network::server_request(
+                    address,
+                    &mut writer,
+                    &mut reader,
+                    packet,
+                    &mut user,
+                )
+                .await?;
+            }
 
             #[allow(unused_parens)]
             u @ (PacketType::Error) => {

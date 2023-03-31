@@ -18,6 +18,7 @@ use crate::{
     raw::{
         Packet,
         PacketFlags,
+        Protocol,
     },
 };
 
@@ -32,6 +33,22 @@ pub struct GalaxyReader<R, D> {
 }
 
 impl<R: Read, D> GalaxyReader<R, D> {
+    pub async fn read_protocol_type(
+        &mut self,
+        flags: PacketFlags,
+    ) -> ReadResult<Protocol> {
+        if flags.intersects(PacketFlags::COMPRESSED) {
+            Ok(Protocol::Tcp)
+        } else if flags.intersects(PacketFlags::SHORT) {
+            Ok(Protocol::Udp)
+        } else if flags.intersects(PacketFlags::SHORT_CLIENT) {
+            Ok(Protocol::Http)
+        } else {
+            // FIXME: Custom protocol retrieval
+            Ok(Protocol::Tcp)
+        }
+    }
+
     pub async fn read_packet_type(&mut self) -> ReadResult<Packet> {
         Packet::from_u8(self.read_u8().await?)
             .ok_or(ReadError::UnknownPacket)

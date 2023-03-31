@@ -11,6 +11,13 @@ pub enum PacketType {
     CreateServer = 2,
 }
 
+#[integral_enum]
+pub enum Protocol {
+    Tcp = 0,
+    Udp = 1,
+    Http = 2,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Packet {
     pub type_: PacketType,
@@ -39,6 +46,9 @@ pub enum ErrorCode {
 
     #[error("Requested functionality is not implemented")]
     Unimplemented = 2,
+
+    #[error("You don't have access to requested functionality")]
+    AccessDenied = 3,
 }
 
 impl From<Packet> for u8 {
