@@ -11,4 +11,10 @@ pub enum ReadError {
 
     #[error("Got unknown packet type")]
     UnknownPacket,
+
+    #[error("Failed to retrieve payload uncompressed size")]
+    FailedToRetrieveUncompressedSize,
+
+    #[error("Failed to decompress data")]
+    FailedToDecompress,
 }

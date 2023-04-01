@@ -16,7 +16,7 @@ pub enum MasterCommand {
         id: u16,
         channel: UnboundedSender<SlaveCommand>,
     },
-    Disconneceted {
+    Disconnected {
         id: u16,
     },
 

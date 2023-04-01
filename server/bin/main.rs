@@ -11,7 +11,10 @@ use std::{
 
 use eyre::Context;
 use neo::{
-    config::Config,
+    config::{
+        Config,
+        LogLevel,
+    },
     tcp,
 };
 use owo_colors::OwoColorize;
@@ -54,8 +57,22 @@ fn die(prelude: &str, e: impl Display) -> ! {
 
 fn setup_tracing(config: &Config) -> eyre::Result<()> {
     let subscriber = FmtSubscriber::builder()
-        // TODO: Add level parsing from config
-        .with_max_level(Level::INFO)
+        .with_max_level(match config.logging.level {
+            LogLevel::Disable | LogLevel::Info => {
+                // FIXME: Implement disable
+                eprintln!(
+                    "{} {}",
+                    "!!".red().bold(),
+                    "Currently `disable` level is not supported, falling \
+                     back to `info`"
+                        .bold()
+                );
+
+                Level::INFO
+            }
+            LogLevel::Debug => Level::DEBUG,
+            LogLevel::Error => Level::ERROR,
+        })
         .without_time()
         .finish();
 

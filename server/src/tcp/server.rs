@@ -30,10 +30,14 @@ use tokio::{
 use crate::{
     config::Config,
     logic::{
+        command::MasterCommand,
         tcp_server::TcpIdPool,
         user::User,
     },
-    tcp::network,
+    tcp::{
+        command,
+        network,
+    },
 };
 
 fn create_id_pool() -> TcpIdPool {
@@ -57,9 +61,45 @@ async fn listen_to_stream(
         GalaxyWriter::new(writer, CompressorStub),
     );
     let mut user = User::new(config.rights.on_connect.to_bits());
+    let mut running = true;
 
-    loop {
-        let packet = match reader.read_packet_type().await {
+    while running {
+        let packet;
+        tokio::select! {
+            pkt = reader.read_packet_type() => {
+                packet = pkt;
+            }
+
+            command = user.recv_command() => {
+                let Some(command) = command else {
+                    tracing::error!("{} Unexpected behavior of channel, report this on github", address.bold());
+                    break;
+                };
+
+                let server = user.tcp_proxy.as_mut().unwrap();
+                match command {
+                    MasterCommand::Connected { id, channel } => {
+                        command::connected(&mut writer, server, id, channel).await?;
+                    }
+
+                    MasterCommand::Disconnected { id } => {
+                        command::disconnected(&mut writer, server, id).await?;
+                    }
+
+                    MasterCommand::Forward { id, buffer } => {
+                        command::forward(&mut writer, id, buffer, &config).await?;
+                    }
+
+                    MasterCommand::Stopped => {
+                        user.tcp_proxy = None;
+                    }
+                }
+
+                continue;
+            }
+        }
+
+        let packet = match packet {
             Ok(p) => p,
             Err(ReadError::UnknownPacket) => {
                 tracing::error!("{} Sent unknown packet", address.bold());
@@ -74,6 +114,29 @@ async fn listen_to_stream(
         };
 
         match packet.type_ {
+            PacketType::Forward => {
+                network::forward(
+                    address,
+                    &mut writer,
+                    &mut reader,
+                    packet,
+                    &mut user,
+                    &config,
+                    &mut running,
+                )
+                .await?;
+            }
+            PacketType::Disconnect => {
+                network::disconnect(
+                    address,
+                    &mut writer,
+                    &mut reader,
+                    packet,
+                    &mut user,
+                )
+                .await?;
+            }
+
             PacketType::Ping => {
                 tracing::info!("{} Ping ", address.bold());
                 network::ping(&mut writer, &config).await?;
@@ -91,15 +154,20 @@ async fn listen_to_stream(
                 .await?;
             }
 
-            #[allow(unused_parens)]
-            u @ (PacketType::Error) => {
+            u => {
                 tracing::error!(
                     "{} Sent unsupported packet: {u:?}",
                     address.bold()
                 );
+                writer
+                    .server()
+                    .write_error(ErrorCode::Unsupported)
+                    .await?;
             }
         }
     }
+
+    Ok(())
 }
 
 pub async fn run_server(config: Arc<Config>) -> eyre::Result<()> {

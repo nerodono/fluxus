@@ -72,7 +72,7 @@ async fn listen_tcp_proxy_client(
 
     if !gracefully {
         let _ =
-            master_chan.send(MasterCommand::Disconneceted { id: self_id });
+            master_chan.send(MasterCommand::Disconnected { id: self_id });
     }
 }
 

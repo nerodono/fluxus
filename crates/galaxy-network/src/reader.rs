@@ -4,6 +4,7 @@ use std::{
         Future,
     },
     io,
+    num::NonZeroUsize,
     pin::Pin,
 };
 
@@ -32,7 +33,48 @@ pub struct GalaxyReader<R, D> {
     decompressor: D,
 }
 
+impl<R: Read, D: Decompressor> GalaxyReader<R, D> {
+    pub async fn try_read_compressed(
+        &mut self,
+        length: usize,
+        validate_size: impl FnOnce(NonZeroUsize) -> bool,
+    ) -> ReadResult<Vec<u8>> {
+        let mut compressed = Vec::with_capacity(length);
+        self.read_buffer_into(&mut compressed, length)
+            .await?;
+
+        let Some(size) = self.decompressor.try_get_decompressed_size(&compressed) else {
+            return Err(ReadError::FailedToRetrieveUncompressedSize);
+        };
+        if !validate_size(size) {
+            return Err(ReadError::FailedToDecompress);
+        }
+
+        self.decompressor
+            .try_decompress(&compressed, size.get())
+            .ok_or(ReadError::FailedToDecompress)
+    }
+}
+
 impl<R: Read, D> GalaxyReader<R, D> {
+    pub async fn skip_n_bytes<const CHUNK_SIZE: usize>(
+        &mut self,
+        nbytes: usize,
+    ) -> io::Result<()> {
+        let mut skipped = 0;
+        let mut chunk = [0; CHUNK_SIZE];
+
+        while skipped < nbytes {
+            let current_chunk = (nbytes - skipped).min(CHUNK_SIZE);
+            self.raw
+                .read_exact(&mut chunk[..current_chunk])
+                .await?;
+            skipped += current_chunk;
+        }
+
+        Ok(())
+    }
+
     pub async fn read_protocol_type(
         &mut self,
         flags: PacketFlags,

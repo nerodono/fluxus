@@ -4,9 +4,31 @@ name = "Neogrok/1.0"
 
 buffering.read = 4096
 
+[logging]
+level = "info"
+
 [authorization.password]
 password = "Nero :3"
 
 [compression]
 algorithm = "zstd"
 level = 10
+threshold = 64
+
+[rights.on_connect]
+tcp.create = false
+tcp.select_port = false
+
+udp.create = false
+udp.select_port = false
+
+http.create = false
+
+[rights.on_password_auth]
+tcp.create = true
+tcp.select_port = true
+
+udp.create = true
+udp.select_port = true
+
+http.create = true

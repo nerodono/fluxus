@@ -9,9 +9,12 @@ pub enum PacketType {
     Ping  = 1,
 
     CreateServer = 2,
+    Connect = 3,
+    Forward = 4,
+    Disconnect = 5,
 }
 
-#[integral_enum]
+#[integral_enum(u8)]
 pub enum Protocol {
     Tcp = 0,
     Udp = 1,
@@ -32,7 +35,6 @@ pub struct Packet {
 #[integral_enum(u8)]
 pub enum CompressionAlgorithm {
     ZStd = 0,
-    Deflate = 1,
 }
 
 #[integral_enum(u8)]
@@ -51,7 +53,19 @@ pub enum ErrorCode {
     AccessDenied = 3,
 
     #[error("Failed to bind to requested address")]
-    FailedToBindAddress,
+    FailedToBindAddress = 4,
+
+    #[error("No server was created")]
+    ServerWasNotCreated = 5,
+
+    #[error("Client with that ID does not exists")]
+    ClientDoesNotExists = 6,
+
+    #[error("Failed to decompress payload")]
+    FailedToDecompress = 7,
+
+    #[error("Too long buffer size supplied")]
+    TooLongBuffer = 8,
 }
 
 impl From<Packet> for u8 {

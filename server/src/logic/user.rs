@@ -1,12 +1,9 @@
-use std::future::Future;
-
 use galaxy_network::raw::{
     Protocol,
     Rights,
 };
 
 use super::{
-    command::MasterCommand,
     recv::RecvFuture,
     tcp_server::TcpProxyServer,
 };
@@ -46,11 +43,11 @@ impl User {
 
 impl User {
     #[inline(always)]
-    pub fn recv_command(
-        &mut self,
-    ) -> RecvFuture<impl Future<Output = Option<MasterCommand>> + '_> {
+    pub fn recv_command(&mut self) -> RecvFuture<'_> {
         if let Some(ref mut proxy) = self.tcp_proxy {
-            RecvFuture::Custom(proxy.recv_chan.recv())
+            RecvFuture::Custom {
+                chan: &mut proxy.recv_chan,
+            }
         } else {
             RecvFuture::Pending
         }

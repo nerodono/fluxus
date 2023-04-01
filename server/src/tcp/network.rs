@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    io,
     net::SocketAddr,
     num::NonZeroU16,
     sync::Arc,
@@ -11,9 +12,11 @@ use galaxy_network::{
         CreateServerResponseDescriptor,
         PingResponseDescriptor,
     },
+    error::ReadError,
     raw::{
         ErrorCode,
         Packet,
+        PacketFlags,
         Protocol,
     },
     reader::{
@@ -21,6 +24,7 @@ use galaxy_network::{
         Read,
         ReadResult,
     },
+    shrinker::interface::Decompressor,
     writer::{
         GalaxyWriter,
         Write,
@@ -31,7 +35,9 @@ use tokio::net::TcpListener;
 
 use crate::{
     config::Config,
+    error::ChanSendError,
     logic::{
+        command::SlaveCommand,
         tcp_server::{
             TcpIdPool,
             TcpProxyServer,
@@ -40,6 +46,102 @@ use crate::{
     },
     tcp::proxy,
 };
+
+pub async fn forward<W, C, R, D>(
+    address: SocketAddr,
+    writer: &mut GalaxyWriter<W, C>,
+    reader: &mut GalaxyReader<R, D>,
+    pkt: Packet,
+    user: &mut User,
+    config: &Config,
+    running: &mut bool,
+) -> ReadResult<()>
+where
+    W: Write,
+    R: Read,
+    D: Decompressor,
+{
+    let id = reader
+        .read_variadic(pkt.flags, PacketFlags::SHORT_CLIENT)
+        .await?;
+    let length = reader
+        .read_variadic(pkt.flags, PacketFlags::SHORT)
+        .await? as usize;
+    let max_length = config.server.buffering.read.get();
+
+    if length > max_length {
+        return stop_server_with_error(
+            address,
+            writer,
+            ErrorCode::TooLongBuffer,
+            running,
+        )
+        .await;
+    }
+
+    let buffer = match reader
+        .try_read_compressed(length, |len| len.get() <= max_length)
+        .await
+    {
+        Ok(buf) => buf,
+        Err(ReadError::FailedToDecompress) => {
+            tracing::error!(
+                "{} Failed to decompress buffer of size {length}bytes",
+                address.bold()
+            );
+            *running = false;
+            writer
+                .server()
+                .write_error(ErrorCode::FailedToDecompress)
+                .await?;
+            return Ok(());
+        }
+
+        Err(e) => return Err(e),
+    };
+
+    send_tcp_command(
+        writer,
+        id,
+        &mut user.tcp_proxy,
+        SlaveCommand::Forward { buffer },
+        address,
+        "forward",
+    )
+    .await?;
+
+    Ok(())
+}
+
+pub async fn disconnect<W, C, R, D>(
+    address: SocketAddr,
+    writer: &mut GalaxyWriter<W, C>,
+    reader: &mut GalaxyReader<R, D>,
+    pkt: Packet,
+    user: &mut User,
+) -> io::Result<()>
+where
+    W: Write,
+    R: Read,
+{
+    let id = reader
+        .read_variadic(pkt.flags, PacketFlags::SHORT_CLIENT)
+        .await?;
+
+    let Some(server) = send_tcp_command(
+        writer,
+        id,
+        &mut user.tcp_proxy,
+        SlaveCommand::Disconnect,
+        address,
+        "disconnect",
+    )
+    .await? else {
+        return Ok(());
+    };
+
+    expect("disconnect", server.unmap_client(id))
+}
 
 pub async fn server_request<W, C, R, D>(
     address: SocketAddr,
@@ -164,6 +266,77 @@ pub async fn ping<W: Write, C>(
 }
 
 //
+
+async fn stop_server_with_error<W: Write, C>(
+    address: SocketAddr,
+    writer: &mut GalaxyWriter<W, C>,
+    error: ErrorCode,
+    running: &mut bool,
+) -> ReadResult<()> {
+    tracing::error!(
+        "Stopped serving of {} due to the following error: {error}",
+        address.bold()
+    );
+    *running = false;
+    writer
+        .server()
+        .write_error(error)
+        .await
+        .map_err(Into::into)
+}
+
+#[inline]
+fn expect(fn_name: &str, r: Result<(), ()>) -> io::Result<()> {
+    Ok(r.unwrap_or_else(|()| {
+        panic!(
+            "This behavior of {fn_name} is unexpected, report about it \
+             on github"
+        )
+    }))
+}
+
+async fn send_tcp_command<'a, W: Write, C>(
+    writer: &mut GalaxyWriter<W, C>,
+    id: u16,
+    proxy: &'a mut Option<TcpProxyServer>,
+    command: SlaveCommand,
+    address: SocketAddr,
+    action_name: impl Display,
+) -> io::Result<Option<&'a mut TcpProxyServer>> {
+    match proxy {
+        Some(ref mut server) => {
+            match server.send_to(id, command) {
+                Ok(()) => Ok(Some(server)),
+
+                // Do not report this kind of error
+                Err(ChanSendError::ChannelIsClosed) => Ok(None),
+                Err(ChanSendError::IdDoesNotExists) => {
+                    tracing::error!(
+                        "{} ID not found ({action_name})",
+                        address.bold()
+                    );
+                    writer
+                        .server()
+                        .write_error(ErrorCode::ClientDoesNotExists)
+                        .await?;
+                    Ok(None)
+                }
+            }
+        }
+
+        None => {
+            tracing::error!(
+                "{} hasn't created the server ({action_name})",
+                address.bold()
+            );
+            writer
+                .server()
+                .write_error(ErrorCode::ServerWasNotCreated)
+                .await?;
+            Ok(None)
+        }
+    }
+}
 
 async fn write_error<W: Write, C>(
     address: SocketAddr,

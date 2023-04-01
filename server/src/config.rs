@@ -3,6 +3,7 @@ use std::{
     io,
     net::SocketAddr,
     num::{
+        NonZeroU16,
         NonZeroU8,
         NonZeroUsize,
     },
@@ -68,10 +69,15 @@ config! {
     struct CompressionConfig {
         algorithm: CompressionAlgorithm,
         level: NonZeroU8,
+        threshold: Option<NonZeroU16>,
     }
 
     struct BufferingConfig {
         read: NonZeroUsize,
+    }
+
+    struct LoggingConfig {
+        level: LogLevel,
     }
 
     struct ServerConfig {
@@ -85,6 +91,7 @@ config! {
         compression: CompressionConfig,
         authorization: AuthorizationBackend,
         rights: RightsConfig,
+        logging: LoggingConfig,
     }
 }
 

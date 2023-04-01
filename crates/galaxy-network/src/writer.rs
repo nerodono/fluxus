@@ -7,6 +7,7 @@ use std::{
     num::NonZeroU16,
 };
 
+use galaxy_shrinker::interface::Compressor;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
@@ -20,6 +21,7 @@ use crate::{
         PacketFlags,
         PacketType,
     },
+    utils::encode_forward_header,
 };
 
 pub trait Write: Unpin + AsyncWriteExt {}
@@ -36,6 +38,14 @@ pub struct GalaxyWriter<W, C> {
 pub struct GalaxyServerWriter<'a, W, C>(&'a mut GalaxyWriter<W, C>);
 
 impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
+    #[inline]
+    pub fn write_connected(
+        &mut self,
+        id: u16,
+    ) -> impl Future<Output = io::Result<()>> + '_ {
+        self.0.write_client_id(id, PacketType::Connect)
+    }
+
     pub async fn write_server(
         &mut self,
         descriptor: &CreateServerResponseDescriptor,
@@ -97,7 +107,59 @@ impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
     }
 }
 
+impl<W: Write, C: Compressor> GalaxyWriter<W, C> {
+    // FIXME: Can we offload compression to proxy too?
+    pub async fn write_forward(
+        &mut self,
+        client_id: u16,
+        mut buf: &[u8],
+        try_compress: bool,
+    ) -> io::Result<()> {
+        let vec;
+        let mut flags = PacketFlags::empty();
+        if try_compress {
+            match self.compressor.try_compress(buf) {
+                Some(new_buf) => {
+                    vec = new_buf;
+                    buf = &vec;
+                    flags |= PacketFlags::COMPRESSED;
+                }
+
+                None => {}
+            }
+        }
+        let (header, header_len) =
+            encode_forward_header(client_id, buf.len() as u16, flags);
+
+        self.write_two_bufs(&header[..header_len as usize], buf)
+            .await
+    }
+}
+
 impl<W: Write, C> GalaxyWriter<W, C> {
+    async fn write_client_id(
+        &mut self,
+        id: u16,
+        ty: PacketType,
+    ) -> io::Result<()> {
+        if id <= 0xff {
+            self.raw
+                .write_all(&[
+                    Packet::new(ty, PacketFlags::SHORT_CLIENT).encode(),
+                    id as u8,
+                ])
+                .await
+        } else {
+            self.raw
+                .write_all(&[
+                    Packet::id(ty).encode(),
+                    (id & 0xff) as u8,
+                    (id >> 8) as u8,
+                ])
+                .await
+        }
+    }
+
     #[inline]
     fn write_all<'a>(
         &'a mut self,
@@ -141,6 +203,16 @@ impl<W: Write, C> GalaxyWriter<W, C> {
         }
 
         Ok(())
+    }
+}
+
+impl<W: Write, C> GalaxyWriter<W, C> {
+    #[inline]
+    pub fn write_disconnected(
+        &mut self,
+        id: u16,
+    ) -> impl Future<Output = io::Result<()>> + '_ {
+        self.write_client_id(id, PacketType::Disconnect)
     }
 }
 

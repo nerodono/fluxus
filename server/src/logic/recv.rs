@@ -7,17 +7,18 @@ use std::{
     },
 };
 
+use tokio::sync::mpsc::UnboundedReceiver;
+
 use super::command::MasterCommand;
 
-pub enum RecvFuture<F> {
-    Custom(F),
+pub enum RecvFuture<'a> {
+    Custom {
+        chan: &'a mut UnboundedReceiver<MasterCommand>,
+    },
     Pending,
 }
 
-impl<F> Future for RecvFuture<F>
-where
-    F: Unpin + Future<Output = Option<MasterCommand>>,
-{
+impl<'a> Future for RecvFuture<'a> {
     type Output = Option<MasterCommand>;
 
     fn poll(
@@ -25,7 +26,7 @@ where
         cx: &mut Context<'_>,
     ) -> Poll<Self::Output> {
         match self.get_mut() {
-            Self::Custom(ref mut f) => Pin::new(f).poll(cx),
+            Self::Custom { chan } => chan.poll_recv(cx),
             Self::Pending => Poll::Pending,
         }
     }
