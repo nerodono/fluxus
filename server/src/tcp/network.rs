@@ -34,7 +34,10 @@ use owo_colors::OwoColorize;
 use tokio::net::TcpListener;
 
 use crate::{
-    config::Config,
+    config::{
+        AuthorizationBackend,
+        Config,
+    },
     error::ChanSendError,
     logic::{
         command::SlaveCommand,
@@ -46,6 +49,58 @@ use crate::{
     },
     tcp::proxy,
 };
+
+pub async fn authorize_password<W, C, R, D>(
+    address: SocketAddr,
+    writer: &mut GalaxyWriter<W, C>,
+    reader: &mut GalaxyReader<R, D>,
+    user: &mut User,
+    config: &Config,
+) -> io::Result<()>
+where
+    W: Write,
+    R: Read,
+{
+    let password = reader.read_string_prefixed().await?;
+    match config.authorization {
+        AuthorizationBackend::Password {
+            password: ref actual_pswd,
+        } => {
+            if actual_pswd.as_str() != password {
+                tracing::error!(
+                    "{} Aailed to authorize using universal password: \
+                     wrong password",
+                    address.bold()
+                );
+                writer
+                    .server()
+                    .write_error(ErrorCode::AccessDenied)
+                    .await
+            } else {
+                let rights = config.rights.on_password_auth.to_bits();
+                tracing::info!(
+                    "{} Authorized through the universal password and \
+                     got the following rights: {:?}",
+                    address.bold(),
+                    rights.green()
+                );
+                user.rights = rights;
+                writer.server().write_update_rights(rights).await
+            }
+        }
+
+        AuthorizationBackend::Database { .. } => {
+            tracing::error!(
+                "{} Tried to authorize using universal password: disabled",
+                address.bold()
+            );
+            writer
+                .server()
+                .write_error(ErrorCode::Unsupported)
+                .await
+        }
+    }
+}
 
 pub async fn forward<W, C, R, D>(
     address: SocketAddr,

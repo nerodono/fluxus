@@ -17,4 +17,7 @@ pub enum ReadError {
 
     #[error("Failed to decompress data")]
     FailedToDecompress,
+
+    #[error("Invalid rights bits")]
+    InvalidRights { bits: u8 },
 }

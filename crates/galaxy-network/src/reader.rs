@@ -20,6 +20,7 @@ use crate::{
         Packet,
         PacketFlags,
         Protocol,
+        Rights,
     },
 };
 
@@ -57,6 +58,11 @@ impl<R: Read, D: Decompressor> GalaxyReader<R, D> {
 }
 
 impl<R: Read, D> GalaxyReader<R, D> {
+    pub async fn read_rights(&mut self) -> ReadResult<Rights> {
+        let bits = self.read_u8().await?;
+        Rights::from_bits(bits).ok_or(ReadError::InvalidRights { bits })
+    }
+
     pub async fn skip_n_bytes<const CHUNK_SIZE: usize>(
         &mut self,
         nbytes: usize,

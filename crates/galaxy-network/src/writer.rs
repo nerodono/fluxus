@@ -20,6 +20,7 @@ use crate::{
         Packet,
         PacketFlags,
         PacketType,
+        Rights,
     },
     utils::encode_forward_header,
 };
@@ -38,6 +39,18 @@ pub struct GalaxyWriter<W, C> {
 pub struct GalaxyServerWriter<'a, W, C>(&'a mut GalaxyWriter<W, C>);
 
 impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
+    pub async fn write_update_rights(
+        &mut self,
+        new_rights: Rights,
+    ) -> io::Result<()> {
+        self.0
+            .write_all(&[
+                Packet::id(PacketType::UpdateRight).encode(),
+                new_rights.bits(),
+            ])
+            .await
+    }
+
     #[inline]
     pub fn write_connected(
         &mut self,

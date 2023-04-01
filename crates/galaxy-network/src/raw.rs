@@ -12,6 +12,9 @@ pub enum PacketType {
     Connect = 3,
     Forward = 4,
     Disconnect = 5,
+
+    AuthorizePassword = 6,
+    UpdateRight = 7,
 }
 
 #[integral_enum(u8)]

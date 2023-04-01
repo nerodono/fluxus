@@ -114,6 +114,16 @@ async fn listen_to_stream(
         };
 
         match packet.type_ {
+            PacketType::AuthorizePassword => {
+                network::authorize_password(
+                    address,
+                    &mut writer,
+                    &mut reader,
+                    &mut user,
+                    &config,
+                )
+                .await?;
+            }
             PacketType::Forward => {
                 network::forward(
                     address,
@@ -126,6 +136,7 @@ async fn listen_to_stream(
                 )
                 .await?;
             }
+
             PacketType::Disconnect => {
                 network::disconnect(
                     address,
