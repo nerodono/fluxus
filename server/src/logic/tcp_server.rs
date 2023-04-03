@@ -25,7 +25,10 @@ use super::{
         ShutdownTrigger,
     },
 };
-use crate::error::ChanSendError;
+use crate::error::{
+    ChanSendError,
+    UnmapClientError,
+};
 
 pub type TcpIdPool = Arc<Mutex<dyn IdPool<Id = u16> + Send>>;
 
@@ -42,8 +45,14 @@ pub struct TcpProxyServer {
 }
 
 impl TcpProxyServer {
-    pub fn unmap_client(&mut self, id: u16) -> Result<(), ()> {
-        self.clients.remove(&id).ok_or(()).map(|_| ())
+    pub fn unmap_client(
+        &mut self,
+        id: u16,
+    ) -> Result<(), UnmapClientError> {
+        self.clients
+            .remove(&id)
+            .ok_or(UnmapClientError::ClientDoesNotExists)
+            .map(|_| ())
     }
 
     pub fn map_client(

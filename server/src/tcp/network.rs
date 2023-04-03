@@ -341,13 +341,14 @@ async fn stop_server_with_error<W: Write, C>(
 }
 
 #[inline]
-fn expect(fn_name: &str, r: Result<(), ()>) -> io::Result<()> {
-    Ok(r.unwrap_or_else(|()| {
+fn expect<E>(fn_name: &str, r: Result<(), E>) -> io::Result<()> {
+    r.unwrap_or_else(|_| {
         panic!(
             "This behavior of {fn_name} is unexpected, report about it \
              on github"
         )
-    }))
+    });
+    Ok(())
 }
 
 async fn send_tcp_command<'a, W: Write, C>(

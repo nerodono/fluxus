@@ -12,3 +12,15 @@ name = "neo"
 path = "src/lib.rs"
 
 [dependencies]
+eyre.workspace = true
+
+tokio.workspace = true
+num_cpus.workspace = true
+
+clap = { version = "4.2.1", features = ["derive"] }
+owo-colors.workspace = true
+envy.workspace = true
+serde.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true

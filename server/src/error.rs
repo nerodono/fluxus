@@ -3,7 +3,14 @@ use thiserror::Error;
 
 #[derive(Error)]
 #[integral_enum]
-pub enum CreateClientError {
+pub enum UnmapClientError {
+    #[error("Client with specified ID does not exists")]
+    ClientDoesNotExists,
+}
+
+#[derive(Error)]
+#[integral_enum]
+pub enum MapClientError {
     #[error("New ID would overflow underlying type")]
     IdWouldOverflow,
 }
