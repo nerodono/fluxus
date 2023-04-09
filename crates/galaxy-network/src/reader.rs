@@ -163,7 +163,7 @@ impl<R: Read, D> GalaxyReader<R, D> {
         if flags.contains(needed) {
             self.raw.read_u8().await.map(|u| u as _)
         } else {
-            self.raw.read_u16().await
+            self.read_u16().await
         }
     }
 
