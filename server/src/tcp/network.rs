@@ -126,6 +126,10 @@ where
     let max_length = config.server.buffering.read.get();
 
     if length > max_length {
+        tracing::error!(
+            "{} Supplied too long buffer ({length} > {max_length})",
+            address.bold()
+        );
         return stop_server_with_error(
             address,
             writer,
