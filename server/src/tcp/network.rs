@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::Display,
     io,
     net::SocketAddr,
@@ -134,25 +135,29 @@ where
         .await;
     }
 
-    let buffer = match reader
-        .try_read_compressed(length, |len| len.get() <= max_length)
-        .await
-    {
-        Ok(buf) => buf,
-        Err(ReadError::FailedToDecompress) => {
-            tracing::error!(
-                "{} Failed to decompress buffer of size {length}bytes",
-                address.bold()
-            );
-            *running = false;
-            writer
-                .server()
-                .write_error(ErrorCode::FailedToDecompress)
-                .await?;
-            return Ok(());
-        }
+    let buffer = if pkt.flags.intersects(PacketFlags::COMPRESSED) {
+        match reader
+            .try_read_compressed(length, |len| len.get() <= max_length)
+            .await
+        {
+            Ok(buf) => buf,
+            Err(ReadError::FailedToDecompress) => {
+                tracing::error!(
+                    "{} Failed to decompress buffer of size {length}bytes",
+                    address.bold()
+                );
+                *running = false;
+                writer
+                    .server()
+                    .write_error(ErrorCode::FailedToDecompress)
+                    .await?;
+                return Ok(());
+            }
 
-        Err(e) => return Err(e),
+            Err(e) => return Err(e),
+        }
+    } else {
+        reader.read_buffer(length).await?
     };
 
     send_tcp_command(
@@ -182,6 +187,11 @@ where
     let id = reader
         .read_variadic(pkt.flags, PacketFlags::SHORT_CLIENT)
         .await?;
+    tracing::info!(
+        "{} Disconnected from the {}'s server",
+        id.bold(),
+        address.bold()
+    );
 
     let Some(server) = send_tcp_command(
         writer,
@@ -313,7 +323,7 @@ pub async fn ping<W: Write, C>(
                 level: config.compression.level,
             },
 
-            server_name: &config.server.name,
+            server_name: Cow::Borrowed(&config.server.name),
             buffer_read: config.server.buffering.read,
         })
         .await

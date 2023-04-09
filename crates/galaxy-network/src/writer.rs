@@ -20,6 +20,7 @@ use crate::{
         Packet,
         PacketFlags,
         PacketType,
+        Protocol,
         Rights,
     },
     utils::encode_forward_header,
@@ -37,6 +38,58 @@ pub struct GalaxyWriter<W, C> {
 }
 
 pub struct GalaxyServerWriter<'a, W, C>(&'a mut GalaxyWriter<W, C>);
+pub struct GalaxyClientWriter<'a, W, C>(&'a mut GalaxyWriter<W, C>);
+
+impl<'a, W: Write, C> GalaxyClientWriter<'a, W, C> {
+    pub async fn write_server_request(
+        &mut self,
+        protocol: Protocol,
+        port: Option<NonZeroU16>,
+    ) -> io::Result<()> {
+        let flags = match protocol {
+            Protocol::Http => PacketFlags::SHORT_CLIENT,
+            Protocol::Tcp => PacketFlags::COMPRESSED,
+            Protocol::Udp => PacketFlags::SHORT,
+        };
+        let port = port.map(NonZeroU16::get).unwrap_or(0);
+        self.raw_mut()
+            .write_all(&[
+                Packet::new(PacketType::CreateServer, flags).encode(),
+                (port & 0xff) as u8,
+                (port >> 8) as u8,
+            ])
+            .await
+    }
+
+    pub async fn write_password_auth(
+        &mut self,
+        password: &str,
+    ) -> io::Result<()> {
+        self.0
+            .write_two_bufs(
+                &[
+                    Packet::id(PacketType::AuthorizePassword).encode(),
+                    password
+                        .len()
+                        .try_into()
+                        .expect("Too long password"),
+                ],
+                password.as_bytes(),
+            )
+            .await
+    }
+
+    pub fn write_ping(
+        &mut self,
+    ) -> impl Future<Output = io::Result<()>> + '_ {
+        self.raw_mut()
+            .write_u8(Packet::id(PacketType::Ping).encode())
+    }
+
+    pub fn raw_mut(&mut self) -> &mut W {
+        &mut self.0.raw
+    }
+}
 
 impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
     pub async fn write_update_rights(
@@ -128,19 +181,22 @@ impl<W: Write, C: Compressor> GalaxyWriter<W, C> {
         mut buf: &[u8],
         try_compress: bool,
     ) -> io::Result<()> {
-        let vec;
+        let mut vec = Vec::new();
         let mut flags = PacketFlags::empty();
         if try_compress {
-            match self.compressor.try_compress(buf) {
-                Some(new_buf) => {
-                    vec = new_buf;
-                    buf = &vec;
-                    flags |= PacketFlags::COMPRESSED;
-                }
-
-                None => {}
+            if let Some(new_buf) = self.compressor.try_compress(buf) {
+                vec = new_buf;
+                buf = vec.as_slice();
+                flags |= PacketFlags::COMPRESSED;
             }
         }
+
+        debug_assert!(if flags.intersects(PacketFlags::COMPRESSED) {
+            buf == vec
+        } else {
+            true
+        });
+
         let (header, header_len) =
             encode_forward_header(client_id, buf.len() as u16, flags);
 
@@ -230,6 +286,14 @@ impl<W: Write, C> GalaxyWriter<W, C> {
 }
 
 impl<W, C> GalaxyWriter<W, C> {
+    pub fn into_inner(self) -> (W, C) {
+        (self.raw, self.compressor)
+    }
+
+    pub fn client(&mut self) -> GalaxyClientWriter<'_, W, C> {
+        GalaxyClientWriter(self)
+    }
+
     /// Get server specific packets namespace.
     pub fn server(&mut self) -> GalaxyServerWriter<'_, W, C> {
         GalaxyServerWriter(self)

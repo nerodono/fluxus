@@ -17,6 +17,8 @@ use tokio::io::{
 use crate::{
     error::ReadError,
     raw::{
+        CompressionAlgorithm,
+        ErrorCode,
         Packet,
         PacketFlags,
         Protocol,
@@ -58,6 +60,14 @@ impl<R: Read, D: Decompressor> GalaxyReader<R, D> {
 }
 
 impl<R: Read, D> GalaxyReader<R, D> {
+    pub async fn read_compression_algorithm(
+        &mut self,
+    ) -> ReadResult<CompressionAlgorithm> {
+        let repr = self.read_u8().await?;
+        CompressionAlgorithm::try_from(repr)
+            .map_err(|()| ReadError::InvalidCompressionAlgorithm(repr))
+    }
+
     pub async fn read_rights(&mut self) -> ReadResult<Rights> {
         let bits = self.read_u8().await?;
         Rights::from_bits(bits).ok_or(ReadError::InvalidRights { bits })
@@ -102,6 +112,13 @@ impl<R: Read, D> GalaxyReader<R, D> {
             .ok_or(ReadError::UnknownPacket)
     }
 
+    pub async fn read_error_code(&mut self) -> ReadResult<ErrorCode> {
+        self.read_u8()
+            .await?
+            .try_into()
+            .map_err(|()| ReadError::InvalidErrorCode)
+    }
+
     /// Reads `no` bytes into the start of `into` vector.
     /// On success `into` vector will be size of `no`.
     pub async fn read_buffer_into(
@@ -123,6 +140,15 @@ impl<R: Read, D> GalaxyReader<R, D> {
         unsafe { into.set_len(no) };
 
         Ok(())
+    }
+
+    pub async fn read_buffer(
+        &mut self,
+        of_size: usize,
+    ) -> io::Result<Vec<u8>> {
+        let mut vec = Vec::with_capacity(of_size);
+        self.read_buffer_into(&mut vec, of_size).await?;
+        Ok(vec)
     }
 
     /// Read variadic value from the stream. Reads single
@@ -177,6 +203,10 @@ impl<R: Read, D> GalaxyReader<R, D> {
 }
 
 impl<R, D> GalaxyReader<R, D> {
+    pub fn into_inner(self) -> (R, D) {
+        (self.raw, self.decompressor)
+    }
+
     pub const fn new(raw: R, decompressor: D) -> Self {
         Self { raw, decompressor }
     }

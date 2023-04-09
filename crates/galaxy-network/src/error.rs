@@ -20,4 +20,16 @@ pub enum ReadError {
 
     #[error("Invalid rights bits")]
     InvalidRights { bits: u8 },
+
+    #[error("Invalid compression algorithm: 0x{0:x}")]
+    InvalidCompressionAlgorithm(u8),
+
+    #[error("Invalid compression level: {0}")]
+    InvalidCompressionLevel(u8),
+
+    #[error("Invalid read buffer supplied: {0}")]
+    InvalidReadBuffer(u16),
+
+    #[error("Got invalid error code")]
+    InvalidErrorCode,
 }

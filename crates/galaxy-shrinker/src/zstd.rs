@@ -51,11 +51,7 @@ impl Decompressor for ZStdDctx {
         let size = unsafe {
             ZSTD_getDecompressedSize(src.as_ptr() as *const _, src.len())
         };
-        if size != 0 {
-            NonZeroUsize::new(size as _)
-        } else {
-            None
-        }
+        NonZeroUsize::new(size as _)
     }
 
     fn try_decompress(

@@ -6,13 +6,14 @@ use std::{
 use galaxy_network::{
     error::ReadError,
     raw::{
+        CompressionAlgorithm,
         ErrorCode,
         PacketType,
     },
     reader::GalaxyReader,
-    shrinker::interface::{
-        CompressorStub,
-        DecompressorStub,
+    shrinker::zstd::{
+        ZStdCctx,
+        ZStdDctx,
     },
     writer::GalaxyWriter,
 };
@@ -28,7 +29,10 @@ use tokio::{
 };
 
 use crate::{
-    config::Config,
+    config::{
+        CompressionConfig,
+        Config,
+    },
     logic::{
         command::MasterCommand,
         tcp_server::TcpIdPool,
@@ -44,21 +48,34 @@ fn create_id_pool() -> TcpIdPool {
     Arc::new(Mutex::new(FlatIdPool::new(0_u16)))
 }
 
+// FIXME: Polymorphic compression support
+fn create_compressor_decompressor(
+    cfg: &CompressionConfig,
+) -> (ZStdCctx, ZStdDctx) {
+    match cfg.algorithm {
+        CompressionAlgorithm::ZStd => {
+            (ZStdCctx::new(cfg.level), ZStdDctx::new())
+        }
+    }
+}
+
 async fn listen_to_stream(
     config: Arc<Config>,
     mut stream: TcpStream,
     address: SocketAddr,
 ) -> eyre::Result<()> {
     let (reader, writer) = stream.split();
+    let (compressor, decompressor) =
+        create_compressor_decompressor(&config.compression);
     let (mut reader, mut writer) = (
         GalaxyReader::new(
             BufReader::with_capacity(
                 config.server.buffering.read.get(),
                 reader,
             ),
-            DecompressorStub,
+            decompressor,
         ),
-        GalaxyWriter::new(writer, CompressorStub),
+        GalaxyWriter::new(writer, compressor),
     );
     let mut user = User::new(config.rights.on_connect.to_bits());
     let mut running = true;
@@ -188,6 +205,13 @@ pub async fn run_server(config: Arc<Config>) -> eyre::Result<()> {
     tracing::info!("Started TCP server on {}", address.bold());
     loop {
         let (stream, connected_address) = listener.accept().await?;
+        if let Err(e) = stream.set_nodelay(true) {
+            tracing::error!(
+                "Failed to set TCP_NODELAY flag for the {}: {e}",
+                connected_address.bold()
+            );
+            continue;
+        }
         tracing::info!(
             "{} Connected to the TCP server",
             connected_address.bold()

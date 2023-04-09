@@ -37,7 +37,7 @@ async fn listen_tcp_proxy_client(
     master_chan: UnboundedSender<MasterCommand>,
     mut self_chan: UnboundedReceiver<SlaveCommand>,
 ) {
-    let mut gracefully = true;
+    let mut gracefully = false;
     let mut buffer = vec![0; recv_buffer];
     loop {
         tokio::select! {
@@ -57,7 +57,7 @@ async fn listen_tcp_proxy_client(
 
                 match command {
                     SlaveCommand::Disconnect => {
-                        gracefully = false;
+                        gracefully = true;
                         break;
                     }
                     SlaveCommand::Forward { buffer } => {
@@ -140,7 +140,7 @@ pub async fn listen_tcp_proxy(
                 client_rx,
             )
             .await;
-            tracing::error!(
+            tracing::info!(
                 "{} Disconnected from the {}'s server",
                 address.bold(),
                 creator.bold()

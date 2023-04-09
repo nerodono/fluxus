@@ -1,13 +1,24 @@
 use std::{
     fmt::Display,
+    net::{
+        SocketAddr,
+        ToSocketAddrs,
+    },
     num::NonZeroUsize,
     process,
 };
 
-use args::CliArgs;
+use args::{
+    CliArgs,
+    CliSub,
+};
 use clap::Parser;
+use neo::tcp;
 use owo_colors::OwoColorize;
-use tokio::runtime::Builder;
+use tokio::{
+    net::TcpStream,
+    runtime::Builder,
+};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -16,8 +27,41 @@ struct EnvParams {
     workers: Option<NonZeroUsize>,
 }
 
+fn prefer_ipv4(s: impl ToSocketAddrs) -> SocketAddr {
+    let mut addrs = match s.to_socket_addrs() {
+        Ok(a) => a,
+        Err(e) => die("Failed to parse local address", e),
+    };
+    if let Some(addr) =
+        addrs.find(|item| matches!(item, SocketAddr::V4(..)))
+    {
+        addr
+    } else {
+        todo!("V6 Local address")
+    }
+}
+
 async fn async_main(args: CliArgs) -> eyre::Result<()> {
-    todo!()
+    match args.sub {
+        CliSub::Tcp { local, port } => {
+            tracing::info!("Connecting to the {}...", args.remote.bold());
+            let remote = TcpStream::connect(&args.remote)
+                .await
+                .unwrap_or_else(|e| {
+                    die("Failed to connect to the remote", e)
+                });
+            let local = prefer_ipv4(local);
+
+            tcp::init::run_work(
+                remote,
+                args.password.as_deref(),
+                &args.remote,
+                local,
+                port,
+            )
+            .await
+        }
+    }
 }
 
 fn main() -> eyre::Result<()> {

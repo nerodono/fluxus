@@ -11,8 +11,16 @@ path = "bin/main.rs"
 name = "neo"
 path = "src/lib.rs"
 
+[dependencies.galaxy-network]
+version = "0.1.0"
+path = "../crates/galaxy-network"
+
 [dependencies]
+rustc-hash.workspace = true
 eyre.workspace = true
+
+thiserror.workspace = true
+integral-enum.workspace = true
 
 tokio.workspace = true
 num_cpus.workspace = true
@@ -24,3 +32,4 @@ serde.workspace = true
 
 tracing.workspace = true
 tracing-subscriber.workspace = true
+humansize = "2.1.3"

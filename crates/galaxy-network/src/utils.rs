@@ -1,4 +1,8 @@
-use crate::raw::PacketFlags;
+use crate::raw::{
+    Packet,
+    PacketFlags,
+    PacketType,
+};
 
 pub fn encode_forward_header(
     client_id: u16,
@@ -26,6 +30,8 @@ pub fn encode_forward_header(
         header[offset + 1] = (length >> 8) as u8;
         2
     };
+
+    header[0] = Packet::new(PacketType::Forward, flags).encode();
 
     (header, offset as u8)
 }
