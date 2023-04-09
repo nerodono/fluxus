@@ -262,10 +262,15 @@ impl<W: Write, C> GalaxyWriter<W, C> {
             let cur_wrote = self.raw.write_vectored(&ios).await?;
             written += cur_wrote;
 
-            if written >= alen && written != total {
-                let append_offset = total - written;
-                return self.raw.write_all(&append[append_offset..]).await;
-            } else if written != total {
+            if written != total {
+                if written >= plen {
+                    let append_offset = total - written;
+                    return self
+                        .raw
+                        .write_all(&append[append_offset..])
+                        .await;
+                }
+
                 prepend = &prepend[cur_wrote..];
                 ios[0] = IoSlice::new(prepend);
             }
