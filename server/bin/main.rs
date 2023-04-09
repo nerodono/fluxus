@@ -123,7 +123,7 @@ fn load_config(path: &Option<PathBuf>) -> Config {
                     "Failed to locate and parse config file:".bold()
                 );
                 for (&path, error) in
-                    default_paths.into_iter().zip(errors.into_iter())
+                    default_paths.iter().zip(errors.into_iter())
                 {
                     eprintln!("  - {}: {error}", path.display().green());
                 }
