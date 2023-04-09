@@ -14,10 +14,10 @@ Neogrok is the open source alternative to the [ngrok](https://ngrok.com).
 ## Supported protocols
 
 - [ ] **HTTP** - `high priority`
-- [ ] **TCP**  - `high priority`
+- [x] **TCP**  - `high priority`
 - [ ] **UDP**  - `low priority`
 
 ## Internals
 
-- [ ] Packet compression
+- [x] Packet compression
   - [ ] Enable dictionary loading (mainly zstd)
