@@ -110,7 +110,7 @@ Sent by `server`:
 
 | Field    |      Description        |    Size     |
 |----------|:-----------------------:|:-----------:|
-| id       | ID of client            | `u8|u16`      |
+| id       | ID of client            | u8 or u16      |
 
 **NOTES**:
 1. Размер поля id определяется наличием флага `sc`, если он есть - размер u8, иначе же - u16
@@ -119,8 +119,8 @@ Sent by `server`:
 
 | Field    |      Description        |    Size     |
 |----------|:-----------------------:|:-----------:|
-| id       | ID of client            | `u8|u16`      |
-| length   | Length of buffer        | `u8|u16`      |
+| id       | ID of client            | u8 or u16      |
+| length   | Length of buffer        | u8 or u16      |
 | buffer   | Pile of bytes           | Unspecified |
 
 **NOTES**:
