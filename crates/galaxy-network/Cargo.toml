@@ -22,6 +22,9 @@ version = "0.1.0"
 path = "../galaxy-shrinker"
 optional = true
 
+[dev-dependencies]
+rstest = "0.17.0"
+
 [dependencies]
 bitflags = "2.0.2"
 

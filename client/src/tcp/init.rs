@@ -41,7 +41,7 @@ use galaxy_network::{
 };
 use humansize::{
     format_size,
-    DECIMAL,
+    WINDOWS,
 };
 use owo_colors::OwoColorize;
 use tokio::net::TcpStream;
@@ -76,7 +76,7 @@ pub async fn run_work(
     tracing::info!(
         "| {} {}",
         "Read buffer capacity:".bold(),
-        format_size(ping.buffer_read.get(), DECIMAL)
+        format_size(ping.buffer_read.get(), WINDOWS)
     );
 
     if let Some(password) = password {
