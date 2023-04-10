@@ -58,7 +58,8 @@ fn die(prelude: &str, e: impl Display) -> ! {
 fn setup_tracing(config: &Config) -> eyre::Result<()> {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(match config.logging.level {
-            LogLevel::Disable | LogLevel::Info => {
+            LogLevel::Info => Level::INFO,
+            LogLevel::Disable => {
                 // FIXME: Implement disable
                 eprintln!(
                     "{} {}",

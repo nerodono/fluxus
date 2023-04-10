@@ -45,7 +45,10 @@ async fn listen_tcp_proxy_client(
                 let Ok(len @ 1..) = len else {
                     break;
                 };
-                let Ok(_) = master_chan.send(MasterCommand::Forward { id: self_id, buffer: Vec::from(&buffer[..len]) }) else {
+                let Ok(_) = master_chan.send(MasterCommand::Forward {
+                    id: self_id,
+                    buffer: Vec::from(&buffer[..len])
+                }) else {
                     break;
                 };
             }
