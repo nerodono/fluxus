@@ -9,7 +9,7 @@ Neogrok is the open source alternative to the [ngrok](https://ngrok.com).
 ## Authorization
 
 - [ ] Database
-- [ ] Universal password
+- [x] Universal password
 
 ## Supported protocols
 
@@ -20,4 +20,6 @@ Neogrok is the open source alternative to the [ngrok](https://ngrok.com).
 ## Internals
 
 - [x] Packet compression
+  - [ ] Ability to change algorithm (Currently algorithm is semi-hardcoded)
   - [ ] Enable dictionary loading (mainly zstd)
+- [ ] Protocol similar to the `ENet` instead of plain `TCP`
