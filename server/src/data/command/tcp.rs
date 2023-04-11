@@ -1,20 +1,20 @@
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
-pub enum SlaveCommand {
+pub enum TcpSlaveCommand {
     Forward { buffer: Vec<u8> },
     Disconnect,
 }
 
 #[derive(Debug)]
-pub enum MasterCommand {
+pub enum TcpMasterCommand {
     Forward {
         id: u16,
         buffer: Vec<u8>,
     },
     Connected {
         id: u16,
-        channel: UnboundedSender<SlaveCommand>,
+        channel: UnboundedSender<TcpSlaveCommand>,
     },
     Disconnected {
         id: u16,

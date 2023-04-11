@@ -7,6 +7,10 @@ buffering.read = 4096
 [logging]
 level = "info"
 
+[http]
+listen = "0.0.0.0:8080"
+discovery_method = "path"
+
 [authorization.password]
 password = "Nero :3"
 

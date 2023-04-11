@@ -3,10 +3,6 @@ name = "server"
 version = "0.1.0"
 edition = "2021"
 
-[profile.release]
-opt-level = 3
-lto = true
-
 [[bin]]
 name = "neogrokd"
 path = "bin/main.rs"
@@ -38,7 +34,6 @@ tracing-subscriber.workspace = true
 
 toml = "0.7.3"
 num_cpus.workspace = true
-derive_more = { version = "0.99.17", default-features = false, features = [
-    "display",
-] }
+derive_more = { version = "0.99.17", default-features = false, features = ["display", "unwrap"] }
 rustc-hash.workspace = true
+hyper = { version = "0.14.25", features = ["server", "http1", "http2"] }

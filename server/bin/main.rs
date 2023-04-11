@@ -10,12 +10,9 @@ use std::{
 };
 
 use eyre::Context;
-use neo::{
-    config::{
-        Config,
-        LogLevel,
-    },
-    tcp,
+use neo::config::{
+    Config,
+    LogLevel,
 };
 use owo_colors::OwoColorize;
 use tokio::runtime;
@@ -34,7 +31,7 @@ struct EnvParams {
 
 async fn async_main(config: Config) -> eyre::Result<()> {
     let config = Arc::new(config);
-    tcp::server::run_server(config).await
+    todo!()
 }
 
 fn main() -> eyre::Result<()> {

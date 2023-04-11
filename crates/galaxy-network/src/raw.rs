@@ -120,3 +120,21 @@ bitflags! {
         const CAN_CREATE_HTTP     = 1 << 4;
     }
 }
+
+impl Rights {
+    pub const fn can_create_server(self, protocol: Protocol) -> bool {
+        match protocol {
+            Protocol::Http => self.intersects(Rights::CAN_CREATE_HTTP),
+            Protocol::Tcp => self.intersects(Rights::CAN_CREATE_TCP),
+            Protocol::Udp => self.intersects(Rights::CAN_CREATE_UDP),
+        }
+    }
+
+    pub const fn can_select_port(self, protocol: Protocol) -> bool {
+        match protocol {
+            Protocol::Http => false,
+            Protocol::Tcp => self.intersects(Rights::CAN_SELECT_TCP_PORT),
+            Protocol::Udp => self.intersects(Rights::CAN_SELECT_UDP_PORT),
+        }
+    }
+}

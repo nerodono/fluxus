@@ -14,29 +14,31 @@ use tokio::sync::{
     Mutex,
 };
 
-use super::{
-    command::{
-        MasterCommand,
-        SlaveCommand,
+use crate::{
+    data::{
+        command::tcp::{
+            TcpMasterCommand,
+            TcpSlaveCommand,
+        },
+        shutdown_token::{
+            shutdown_token,
+            ShutdownListener,
+            ShutdownTrigger,
+        },
     },
-    shutdown_token::{
-        shutdown_token,
-        ShutdownListener,
-        ShutdownTrigger,
+    error::{
+        ChanSendError,
+        UnmapClientError,
     },
-};
-use crate::error::{
-    ChanSendError,
-    UnmapClientError,
 };
 
 pub type TcpIdPool = Arc<Mutex<dyn IdPool<Id = u16> + Send>>;
 
 pub struct TcpProxyServer {
-    pub send_chan: UnboundedSender<MasterCommand>,
-    pub(crate) recv_chan: UnboundedReceiver<MasterCommand>,
+    pub send_chan: UnboundedSender<TcpMasterCommand>,
+    pub(crate) recv_chan: UnboundedReceiver<TcpMasterCommand>,
 
-    clients: FxHashMap<u16, UnboundedSender<SlaveCommand>>,
+    clients: FxHashMap<u16, UnboundedSender<TcpSlaveCommand>>,
     pub pool: Arc<TcpIdPool>,
 
     address: SocketAddr,
@@ -58,7 +60,7 @@ impl TcpProxyServer {
     pub fn map_client(
         &mut self,
         id: u16,
-        chan: UnboundedSender<SlaveCommand>,
+        chan: UnboundedSender<TcpSlaveCommand>,
     ) {
         self.clients.insert(id, chan);
     }
@@ -66,7 +68,7 @@ impl TcpProxyServer {
     pub fn send_to(
         &self,
         id: u16,
-        command: SlaveCommand,
+        command: TcpSlaveCommand,
     ) -> Result<(), ChanSendError> {
         match self.clients.get(&id) {
             Some(chan) => chan

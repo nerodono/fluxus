@@ -39,6 +39,8 @@ config! {
         },
     }
 
+    // TODO: Discovery by domain
+    int HttpDiscoveryMethod<u8> { Path }
     int LogLevel<u8> { Disable, Info, Error, Debug }
 
     //
@@ -62,6 +64,13 @@ config! {
     struct RightsConfig {
         on_connect: ProtocolRightsConfig,
         on_password_auth: ProtocolRightsConfig,
+    }
+
+    //
+
+    struct HttpConfig {
+        listen: SocketAddr,
+        discovery_method: HttpDiscoveryMethod,
     }
 
     //
@@ -92,6 +101,8 @@ config! {
         authorization: AuthorizationBackend,
         rights: RightsConfig,
         logging: LoggingConfig,
+
+        http: Option<HttpConfig>
     }
 }
 
