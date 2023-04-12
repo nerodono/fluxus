@@ -10,6 +10,7 @@ use galaxy_network::{
     },
     writer::GalaxyWriter,
 };
+use owo_colors::OwoColorize;
 use tokio::{
     io::BufReader,
     net::TcpStream,
@@ -17,7 +18,11 @@ use tokio::{
 
 use crate::{
     config::Config,
-    data::idpool::IdPool,
+    data::{
+        command::erased::ErasedCommand,
+        idpool::IdPool,
+        user::User,
+    },
     utils,
 };
 
@@ -32,7 +37,9 @@ where
 {
     let read_buffer_capacity = config.server.buffering.read;
     let (compressor, decompressor) =
-        utils::create_compressor_decompressor(&config.compression);
+        utils::compression::create_compressor_decompressor(
+            &config.compression,
+        );
     let (reader, writer) = stream.split();
     let (mut reader, mut writer) = (
         GalaxyReader::new(
@@ -44,6 +51,36 @@ where
         ),
         GalaxyWriter::new(writer, compressor),
     );
+    let mut user =
+        User::new(id_pool_factory(), config.rights.on_connect.to_bits());
 
-    todo!()
+    loop {
+        let packet_type;
+        tokio::select! {
+            pkt_ty = reader.read_packet_type() => {
+                packet_type = pkt_ty?;
+            }
+
+            command = user.proxy.recv_chan.recv() => {
+                let Some(command) = command else {
+                    tracing::error!(
+                        "Failed to pull commands, closing connection for {}...",
+                        address.bold()
+                    );
+                    break Ok(());
+                };
+
+                match command {
+                    ErasedCommand::Tcp(tcp_command) => {
+                        todo!()
+                    }
+                }
+                continue;
+            }
+        }
+
+        match packet_type.type_ {
+            _ => todo!(),
+        }
+    }
 }

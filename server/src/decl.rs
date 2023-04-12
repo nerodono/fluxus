@@ -1,3 +1,31 @@
+macro_rules! unwrap_bind {
+    ($pat:pat = $expr:expr) => {
+        let $pat = $expr else { unreachable!() };
+    };
+}
+
+macro_rules! chan_permits {
+    (
+        $enum:ident::[
+            $(
+                [$variant:ident, $type:ty]
+            ),*
+        ]
+    ) => {paste::paste! {
+        $(
+            #[derive(Clone)]
+            pub struct [<$variant Permit>](tokio::sync::mpsc::UnboundedSender<$enum>);
+
+            impl [<$variant Permit>] {
+                #[inline]
+                pub fn send(&self, command: $type) -> Result<(), tokio::sync::mpsc::error::SendError<$enum>> {
+                    self.0.send($enum::$variant(command))
+                }
+            }
+        )*
+    }};
+}
+
 macro_rules! config {
     () => {};
     (
@@ -68,4 +96,6 @@ macro_rules! config {
     };
 }
 
+pub(crate) use chan_permits;
 pub(crate) use config;
+pub(crate) use unwrap_bind;
