@@ -84,7 +84,7 @@ pub async fn run_work(
             .client()
             .write_password_auth(password)
             .await?;
-        expect_packet(&mut reader, PacketType::UpdateRight).await?;
+        expect_packet(&mut reader, PacketType::UpdateRights).await?;
 
         let rights = reader.read_rights().await?;
         tracing::info!("| Got rights: {:?}", rights.bold());

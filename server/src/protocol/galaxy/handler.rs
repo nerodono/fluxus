@@ -4,6 +4,10 @@ use std::{
 };
 
 use galaxy_network::{
+    raw::{
+        ErrorCode,
+        PacketType,
+    },
     reader::{
         GalaxyReader,
         ReadResult,
@@ -19,10 +23,11 @@ use tokio::{
 use crate::{
     config::Config,
     data::{
-        command::erased::ErasedCommand,
         idpool::IdPool,
         user::User,
     },
+    events,
+    protocol::galaxy::network_events,
     utils,
 };
 
@@ -70,17 +75,61 @@ where
                     break Ok(());
                 };
 
-                match command {
-                    ErasedCommand::Tcp(tcp_command) => {
-                        todo!()
-                    }
-                }
+                events::dispatch::dispatch_command(
+                    &mut writer,
+                    command,
+                    &mut user
+                ).await?;
                 continue;
             }
         }
 
         match packet_type.type_ {
-            _ => todo!(),
+            PacketType::Ping => {
+                network_events::ping(&mut writer, address, &config)
+                    .await?;
+            }
+
+            PacketType::AuthorizePassword => {
+                network_events::authorize_password(
+                    &mut writer,
+                    &mut reader,
+                    address,
+                    &config,
+                    &mut user,
+                )
+                .await?;
+            }
+
+            PacketType::CreateServer => {
+                network_events::create_server(
+                    &mut writer,
+                    &mut reader,
+                    address,
+                    &mut user,
+                    packet_type.flags,
+                )
+                .await?;
+            }
+
+            PacketType::Forward => {
+                todo!();
+            }
+
+            PacketType::Disconnect => {
+                todo!();
+            }
+
+            otherwise => {
+                tracing::error!(
+                    "{} Sent unsupported packet: {otherwise:?}",
+                    address.bold()
+                );
+                writer
+                    .server()
+                    .write_error(ErrorCode::Unsupported)
+                    .await?;
+            }
         }
     }
 }
