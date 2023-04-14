@@ -1,6 +1,17 @@
 [workspace]
 members = ["client", "server", "crates/*"]
 
+[profile.release]
+opt-level = 3
+lto = true
+
+[profile.dev]
+opt-level = 1
+lto = false
+
+[profile.dev.package."*"]
+opt-level = 3
+
 [workspace.dependencies.tokio]
 features = ["rt", "rt-multi-thread", "net", "sync", "io-util", "macros"]
 version = "1.27"
