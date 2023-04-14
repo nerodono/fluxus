@@ -52,6 +52,8 @@ impl<'a, W: Write, C> GalaxyClientWriter<'a, W, C> {
             Protocol::Udp => PacketFlags::SHORT,
         };
         let port = port.map(NonZeroU16::get).unwrap_or(0);
+
+        // FIXME: http settings?
         self.raw_mut()
             .write_all(&[
                 Packet::new(PacketType::CreateServer, flags).encode(),
@@ -98,7 +100,7 @@ impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
     ) -> io::Result<()> {
         self.0
             .write_all(&[
-                Packet::id(PacketType::UpdateRight).encode(),
+                Packet::id(PacketType::UpdateRights).encode(),
                 new_rights.bits(),
             ])
             .await
