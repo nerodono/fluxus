@@ -21,12 +21,12 @@ where
     fn request(&mut self) -> Option<Self::Id> {
         if let Some(id) = self.vec.pop() {
             Some(id)
+        } else if I::max_value() == self.last {
+            None
         } else {
-            if I::max_value() == self.last {
-                None
-            } else {
-                Some(self.last + I::one())
-            }
+            let prev = self.last;
+            self.last = I::one();
+            Some(prev)
         }
     }
 

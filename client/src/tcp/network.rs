@@ -41,6 +41,8 @@ pub async fn connect<R: Read, D>(
     let (chan_tx, chan_rx) = mpsc::unbounded_channel();
     server.new_slave(client_id, chan_tx);
 
+    tracing::info!("Connected ID#{client_id}");
+
     tokio::spawn(slave::run_slave(
         client_id,
         buffer_size,

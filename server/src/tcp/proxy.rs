@@ -119,6 +119,12 @@ pub async fn listen_tcp_proxy(
             continue;
         };
 
+        tracing::info!(
+            "{} Connected to the {}'s server and got ID#{id}",
+            address.bold(),
+            creator.bold()
+        );
+
         let (client_tx, client_rx) = unbounded_channel();
         if chan
             .send(MasterCommand::Connected {
