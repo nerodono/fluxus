@@ -27,17 +27,34 @@ struct EnvParams {
     workers: Option<NonZeroUsize>,
 }
 
-fn prefer_ipv4(s: impl ToSocketAddrs) -> SocketAddr {
+fn prefer_ipv(s: impl ToSocketAddrs, prefer_ipv4: bool) -> SocketAddr {
     let mut addrs = match s.to_socket_addrs() {
         Ok(a) => a,
         Err(e) => die("Failed to parse local address", e),
     };
-    if let Some(addr) = addrs.find(|item| matches!(item, SocketAddr::V4(..)))
-    {
-        addr
-    } else {
-        todo!("V6 Local address")
+    let mut selected = addrs
+        .next()
+        .expect("No IP address associated with host");
+
+    // Silly code, but I simply don't care :D
+    for addr in addrs {
+        match addr {
+            SocketAddr::V4(..) => {
+                if prefer_ipv4 {
+                    selected = addr;
+                    break;
+                }
+            }
+
+            SocketAddr::V6(..) => {
+                if !prefer_ipv4 {
+                    selected = addr;
+                    break;
+                }
+            }
+        }
     }
+    selected
 }
 
 async fn async_main(args: CliArgs) -> eyre::Result<()> {
@@ -49,7 +66,7 @@ async fn async_main(args: CliArgs) -> eyre::Result<()> {
                 .unwrap_or_else(|e| {
                     die("Failed to connect to the remote", e)
                 });
-            let local = prefer_ipv4(local);
+            let local = prefer_ipv(local, !args.prefer_ipv6);
 
             tcp::init::run_work(
                 remote,

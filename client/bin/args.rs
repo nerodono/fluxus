@@ -28,6 +28,11 @@ pub struct CliArgs {
     #[clap(long, short)]
     pub password: Option<String>,
 
+    /// Prefer IPv6 when resolving address of the local
+    /// server
+    #[clap(long, short)]
+    pub prefer_ipv6: bool,
+
     /// Action to perform
     #[clap(subcommand)]
     pub sub: CliSub,
