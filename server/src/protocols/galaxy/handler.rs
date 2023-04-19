@@ -36,12 +36,21 @@ use crate::{
     utils,
 };
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "http")] {
+        use tokio::sync::mpsc;
+        use crate::data::commands::http::GlobalHttpCommand;
+    }
+}
+
 pub async fn handle_connection<R, D, W, C>(
     mut reader: GalaxyReader<R, D>,
     mut writer: GalaxyWriter<W, C>,
     config: Arc<Config>,
     address: SocketAddr,
     id_pool_factory: impl Fn() -> IdPoolImpl,
+
+    #[cfg(feature = "http")] chan: mpsc::UnboundedSender<GlobalHttpCommand>,
 ) -> ReadResult<()>
 where
     R: Read,

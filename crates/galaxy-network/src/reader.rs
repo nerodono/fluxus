@@ -37,6 +37,20 @@ pub struct GalaxyReader<R, D> {
 }
 
 impl<R: Read, D: Decompressor> GalaxyReader<R, D> {
+    pub async fn try_read_forward_buffer(
+        &mut self,
+        length: usize,
+        validate_size: impl FnOnce(NonZeroUsize) -> bool,
+        flags: PacketFlags,
+    ) -> ReadResult<Vec<u8>> {
+        if flags.contains(PacketFlags::COMPRESSED) {
+            self.try_read_compressed(length, validate_size)
+                .await
+        } else {
+            self.read_buffer(length).await.map_err(Into::into)
+        }
+    }
+
     pub async fn try_read_compressed(
         &mut self,
         length: usize,

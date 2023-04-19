@@ -121,6 +121,8 @@ bitflags! {
         const CAN_SELECT_UDP_PORT = 1 << 3;
 
         const CAN_CREATE_HTTP     = 1 << 4;
+        const CAN_SELECT_PATH     = 1 << 5;
+        const CAN_SELECT_DOMAIN   = 1 << 6;
     }
 }
 

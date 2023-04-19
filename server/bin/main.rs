@@ -10,17 +10,29 @@ use std::{
 };
 
 use eyre::Context;
-use neo::{
-    config::{
-        Config,
-        LogLevel,
-    },
-    protocols::galaxy,
+use neo::config::{
+    Config,
+    LogLevel,
 };
 use owo_colors::OwoColorize;
-use tokio::runtime;
+use tokio::{
+    runtime,
+    task::JoinHandle,
+};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
+
+#[rustfmt::skip]
+#[cfg(feature = "galaxy")]
+use neo::protocols::galaxy;
+#[cfg(feature = "http")]
+use neo::protocols::http;
+
+#[rustfmt::skip]
+#[cfg(feature = "http")]
+use tokio::sync::mpsc;
+#[cfg(feature = "http")]
+use neo::data::commands::http::GlobalHttpCommand;
 
 #[derive(Debug, serde::Deserialize)]
 struct EnvParams {
@@ -32,11 +44,30 @@ struct EnvParams {
     workers: Option<NonZeroUsize>,
 }
 
+#[allow(clippy::vec_init_then_push)]
 async fn async_main(config: Config) -> eyre::Result<()> {
     let config = Arc::new(config);
-    galaxy::listener::run_galaxy_listener(config)
-        .await
-        .wrap_err("Failed to start `Galaxy` listener")
+    let mut handles = Vec::new();
+
+    #[cfg(feature = "http")]
+    let http_tx = {
+        let (tx, rx) = mpsc::unbounded_channel();
+        handles.push(start_http(Arc::clone(&config), rx));
+        tx
+    };
+
+    #[cfg(feature = "galaxy")]
+    handles.push(start_galaxy(
+        config,
+        #[cfg(feature = "http")]
+        http_tx,
+    ));
+
+    for handle in handles {
+        _ = handle.await;
+    }
+
+    Ok(())
 }
 
 fn main() -> eyre::Result<()> {
@@ -51,6 +82,32 @@ fn main() -> eyre::Result<()> {
 
     runtime.block_on(async_main(config))
 }
+
+// Starters
+
+#[cfg(feature = "http")]
+fn start_http(
+    config: Arc<Config>,
+    rx: mpsc::UnboundedReceiver<GlobalHttpCommand>,
+) -> JoinHandle<eyre::Result<()>> {
+    tokio::spawn(http::listener::run_http_listener(config, rx))
+}
+
+#[cfg(feature = "galaxy")]
+fn start_galaxy(
+    config: Arc<Config>,
+    #[cfg(feature = "http")] http_chan: mpsc::UnboundedSender<
+        GlobalHttpCommand,
+    >,
+) -> JoinHandle<eyre::Result<()>> {
+    tokio::spawn(galaxy::listener::run_galaxy_listener(
+        config,
+        #[cfg(feature = "http")]
+        http_chan,
+    ))
+}
+
+//
 
 fn die(prelude: &str, e: impl Display) -> ! {
     eprintln!("{} {}: {e}", "!!".red().bold(), prelude.bold());

@@ -1,7 +1,4 @@
-use std::{
-    io,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use galaxy_network::{
     error::ReadError,
@@ -18,7 +15,20 @@ use crate::{
     utils,
 };
 
-pub async fn run_galaxy_listener(config: Arc<Config>) -> io::Result<()> {
+cfg_if::cfg_if! {
+    if #[cfg(feature = "http")] {
+        use crate::data::commands::http::GlobalHttpCommand;
+        use tokio::sync::mpsc;
+    }
+}
+
+pub async fn run_galaxy_listener(
+    config: Arc<Config>,
+
+    #[cfg(feature = "http")] http_chan: mpsc::UnboundedSender<
+        GlobalHttpCommand,
+    >,
+) -> eyre::Result<()> {
     let bold_galaxy = "`Galaxy`".bold();
 
     let listen_addr = config.server.listen;
@@ -51,6 +61,10 @@ pub async fn run_galaxy_listener(config: Arc<Config>) -> io::Result<()> {
         );
 
         let config = Arc::clone(&config);
+
+        #[cfg(feature = "http")]
+        let http_chan = http_chan.clone();
+
         tokio::spawn(async move {
             let (r_side, w_side) = stream.split();
             let reader = GalaxyReader::new(r_side, decompressor);
@@ -62,6 +76,8 @@ pub async fn run_galaxy_listener(config: Arc<Config>) -> io::Result<()> {
                 config,
                 address,
                 create_id_pool,
+                #[cfg(feature = "http")]
+                http_chan,
             )
             .await;
             if matches!(result, Err(ReadError::UnknownPacket)) {

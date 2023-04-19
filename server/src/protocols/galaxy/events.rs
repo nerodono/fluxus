@@ -37,6 +37,7 @@ use crate::{
     config::{
         AuthorizationBackend,
         Config,
+        HttpDiscoveryMethod,
     },
     data::{
         commands::tcp::TcpSlaveCommand,
@@ -148,21 +149,12 @@ where
         return Err(ReadError::TooLongBuffer);
     }
 
+    let buffer = reader
+        .try_read_forward_buffer(length, |size| size.get() <= max_read, flags)
+        .await?;
     let proxy = require_proxy(writer, &mut user.proxy).await?;
     match &mut proxy.data {
         ProxyData::Tcp(tcp) => {
-            let buffer = if flags.contains(PacketFlags::COMPRESSED) {
-                reader
-                    .try_read_compressed(length, |size| {
-                        size.get() <= max_read
-                    })
-                    .await
-            } else {
-                reader
-                    .read_buffer(length)
-                    .await
-                    .map_err(Into::into)
-            }?;
             treat_send_result(
                 writer,
                 tcp.send_command(
@@ -192,8 +184,17 @@ where
     let protocol = reader.read_protocol_type(flags).await?;
 
     match protocol {
+        #[cfg(feature = "http")]
         Protocol::Http => {
-            todo!();
+            let discovery_data = reader.read_string_prefixed().await?;
+            let Some(ref http_cfg) = config.http else {
+                writer.server().write_error(ErrorCode::Unsupported).await?;
+                return Ok(());
+            };
+
+            match http_cfg.discovery_method {
+                HttpDiscoveryMethod::Path => {}
+            }
         }
 
         Protocol::Tcp => {
@@ -259,9 +260,10 @@ where
                 .await?;
         }
 
-        Protocol::Udp => {
+        #[allow(unreachable_patterns)]
+        p => {
             tracing::info!(
-                "{} UDP protocol currently is not implemented",
+                "{} server was compiled without `{p:?}` support",
                 address.bold()
             );
             writer
