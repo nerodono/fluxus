@@ -32,8 +32,7 @@ fn prefer_ipv4(s: impl ToSocketAddrs) -> SocketAddr {
         Ok(a) => a,
         Err(e) => die("Failed to parse local address", e),
     };
-    if let Some(addr) =
-        addrs.find(|item| matches!(item, SocketAddr::V4(..)))
+    if let Some(addr) = addrs.find(|item| matches!(item, SocketAddr::V4(..)))
     {
         addr
     } else {

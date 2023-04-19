@@ -8,10 +8,7 @@ pub trait Compressor: Send {
 }
 
 pub trait Decompressor: Send {
-    fn try_get_decompressed_size(
-        &self,
-        src: &[u8],
-    ) -> Option<NonZeroUsize>;
+    fn try_get_decompressed_size(&self, src: &[u8]) -> Option<NonZeroUsize>;
     fn try_decompress(
         &mut self,
         src: &[u8],
@@ -33,10 +30,7 @@ impl<T: CStub + Send> Compressor for T {
 }
 impl<T: DStub + Send> Decompressor for T {
     #[track_caller]
-    fn try_get_decompressed_size(
-        &self,
-        _src: &[u8],
-    ) -> Option<NonZeroUsize> {
+    fn try_get_decompressed_size(&self, _src: &[u8]) -> Option<NonZeroUsize> {
         unimplemented!()
     }
 

@@ -158,15 +158,9 @@ impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
     }
 
     /// Write error to the underlying stream.
-    pub async fn write_error(
-        &mut self,
-        code: ErrorCode,
-    ) -> io::Result<()> {
+    pub async fn write_error(&mut self, code: ErrorCode) -> io::Result<()> {
         self.raw_mut()
-            .write_all(&[
-                Packet::id(PacketType::Error).encode(),
-                code as u8,
-            ])
+            .write_all(&[Packet::id(PacketType::Error).encode(), code as u8])
             .await
     }
 

@@ -108,8 +108,7 @@ impl<R: Read, D> GalaxyReader<R, D> {
     }
 
     pub async fn read_packet_type(&mut self) -> ReadResult<Packet> {
-        Packet::from_u8(self.read_u8().await?)
-            .ok_or(ReadError::UnknownPacket)
+        Packet::from_u8(self.read_u8().await?).ok_or(ReadError::UnknownPacket)
     }
 
     pub async fn read_error_code(&mut self) -> ReadResult<ErrorCode> {
@@ -129,10 +128,8 @@ impl<R: Read, D> GalaxyReader<R, D> {
         let mut buffer =
             ReadBuf::uninit(&mut into.spare_capacity_mut()[..no]);
         while buffer.filled().len() < no {
-            poll_fn(|cx| {
-                Pin::new(&mut self.raw).poll_read(cx, &mut buffer)
-            })
-            .await?;
+            poll_fn(|cx| Pin::new(&mut self.raw).poll_read(cx, &mut buffer))
+                .await?;
         }
 
         // SAFETY: this is safe since previous loop would exit only
@@ -167,6 +164,22 @@ impl<R: Read, D> GalaxyReader<R, D> {
         }
     }
 
+    #[inline]
+    pub fn read_client_id(
+        &mut self,
+        flags: PacketFlags,
+    ) -> impl Future<Output = io::Result<u16>> + '_ {
+        self.read_variadic(flags, PacketFlags::SHORT_CLIENT)
+    }
+
+    #[inline]
+    pub fn read_forward_length(
+        &mut self,
+        flags: PacketFlags,
+    ) -> impl Future<Output = io::Result<u16>> + '_ {
+        self.read_variadic(flags, PacketFlags::SHORT)
+    }
+
     /// Same as [`GalaxyReader::read_bytes_prefixed`] but
     /// returns lossy decoded utf8 String.
     pub async fn read_string_prefixed(&mut self) -> io::Result<String> {
@@ -187,17 +200,13 @@ impl<R: Read, D> GalaxyReader<R, D> {
 
     /// Read U16 from the underlying stream.
     #[inline]
-    pub fn read_u16(
-        &mut self,
-    ) -> impl Future<Output = io::Result<u16>> + '_ {
+    pub fn read_u16(&mut self) -> impl Future<Output = io::Result<u16>> + '_ {
         self.raw.read_u16_le()
     }
 
     /// Read U8 from the underlying stream.
     #[inline]
-    pub fn read_u8(
-        &mut self,
-    ) -> impl Future<Output = io::Result<u8>> + '_ {
+    pub fn read_u8(&mut self) -> impl Future<Output = io::Result<u8>> + '_ {
         self.raw.read_u8()
     }
 }

@@ -10,9 +10,12 @@ use std::{
 };
 
 use eyre::Context;
-use neo::config::{
-    Config,
-    LogLevel,
+use neo::{
+    config::{
+        Config,
+        LogLevel,
+    },
+    protocols::galaxy,
 };
 use owo_colors::OwoColorize;
 use tokio::runtime;
@@ -31,7 +34,9 @@ struct EnvParams {
 
 async fn async_main(config: Config) -> eyre::Result<()> {
     let config = Arc::new(config);
-    todo!()
+    galaxy::listener::run_galaxy_listener(config)
+        .await
+        .wrap_err("Failed to start `Galaxy` listener")
 }
 
 fn main() -> eyre::Result<()> {

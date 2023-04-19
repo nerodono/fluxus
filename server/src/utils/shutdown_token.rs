@@ -1,35 +1,38 @@
-use std::mem::take;
+use std::mem;
 
 use tokio::sync::oneshot;
 
 struct Token;
 
-pub struct ShutdownTrigger {
-    // Option is needed to consume sender on drop
+pub struct ShutdownPermit {
     chan: Option<oneshot::Sender<Token>>,
 }
 
-pub struct ShutdownListener {
+pub struct ShutdownToken {
     chan: oneshot::Receiver<Token>,
 }
 
-pub fn shutdown_token() -> (ShutdownTrigger, ShutdownListener) {
-    let (tx, rx) = oneshot::channel();
-    (
-        ShutdownTrigger { chan: Some(tx) },
-        ShutdownListener { chan: rx },
-    )
-}
-
-impl ShutdownListener {
-    pub async fn wait_for_cancelation(&mut self) {
-        let _ = (&mut self.chan).await;
+impl ShutdownToken {
+    #[inline]
+    pub async fn wait_for_shutdown(&mut self) {
+        _ = (&mut self.chan).await;
     }
 }
 
-impl Drop for ShutdownTrigger {
+#[inline]
+pub fn shutdown_token() -> (ShutdownToken, ShutdownPermit) {
+    let (tx, rx) = oneshot::channel();
+    (
+        ShutdownToken { chan: rx },
+        ShutdownPermit { chan: Some(tx) },
+    )
+}
+
+impl Drop for ShutdownPermit {
     fn drop(&mut self) {
-        let chan = take(&mut self.chan).unwrap();
-        let _ = chan.send(Token);
+        // SAFETY: safe since we don't expose `chan` property, it is
+        // always Some(channel)
+        let chan = unsafe { mem::take(&mut self.chan).unwrap_unchecked() };
+        _ = chan.send(Token);
     }
 }

@@ -30,10 +30,7 @@ pub struct Packet {
     pub flags: PacketFlags,
 }
 
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 #[integral_enum(u8)]
 pub enum CompressionAlgorithm {
@@ -59,7 +56,7 @@ pub enum ErrorCode {
     FailedToBindAddress = 4,
 
     #[error("No server was created")]
-    ServerWasNotCreated = 5,
+    NoServerWasCreated = 5,
 
     #[error("Client with that ID does not exists")]
     ClientDoesNotExists = 6,
@@ -69,6 +66,12 @@ pub enum ErrorCode {
 
     #[error("Too long buffer size supplied")]
     TooLongBuffer = 8,
+
+    #[error("Invalid command for that server type")]
+    InvalidServerType = 9,
+
+    #[error("Server was stopped")]
+    ServerStopped = 10,
 }
 
 impl From<Packet> for u8 {

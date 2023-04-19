@@ -62,8 +62,7 @@ pub async fn disconnect<R: Read, D>(
         .await?;
     if let Err(e) = server.remove_client(client_id) {
         tracing::error!(
-            "Failed to remove client {client_id} from the local server: \
-             {}",
+            "Failed to remove client {client_id} from the local server: {}",
             e.bold()
         );
     } else {
@@ -104,10 +103,8 @@ where
     if let Err(e) =
         server.send_command(client_id, SlaveCommand::Forward { buffer })
     {
-        return fallback_disconnect(
-            server, client_id, "forward", e, writer,
-        )
-        .await;
+        return fallback_disconnect(server, client_id, "forward", e, writer)
+            .await;
     }
     Ok(())
 }
@@ -122,8 +119,7 @@ async fn fallback_disconnect<W: Write, C>(
     server.just_remove_client(id);
     writer.write_disconnected(id).await?;
     tracing::error!(
-        "Failed to send command to the client with ID {id}: {error} \
-         ({fn_})"
+        "Failed to send command to the client with ID {id}: {error} ({fn_})"
     );
     Ok(())
 }

@@ -7,6 +7,7 @@ use std::{
     ptr::NonNull,
 };
 
+use negative_impl::negative_impl;
 use zstd_sys::{
     ZSTD_CCtx,
     ZSTD_DCtx,
@@ -38,16 +39,15 @@ pub struct ZStdDctx {
 }
 
 unsafe impl Send for ZStdCctx {}
+#[negative_impl]
 impl !Sync for ZStdCctx {}
 
 unsafe impl Send for ZStdDctx {}
+#[negative_impl]
 impl !Sync for ZStdDctx {}
 
 impl Decompressor for ZStdDctx {
-    fn try_get_decompressed_size(
-        &self,
-        src: &[u8],
-    ) -> Option<NonZeroUsize> {
+    fn try_get_decompressed_size(&self, src: &[u8]) -> Option<NonZeroUsize> {
         let size = unsafe {
             ZSTD_getDecompressedSize(src.as_ptr() as *const _, src.len())
         };
@@ -117,14 +117,20 @@ impl ZStdCctx {
     }
 }
 
-impl ZStdDctx {
-    pub fn new() -> Self {
+impl Default for ZStdDctx {
+    fn default() -> Self {
         let dctx = NonNull::new(unsafe { ZSTD_createDCtx() })
             .expect("Failed to create zstd decompression ctx");
         Self {
             dctx,
             _phantom: PhantomData,
         }
+    }
+}
+
+impl ZStdDctx {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

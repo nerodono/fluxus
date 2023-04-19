@@ -1,2 +1,2 @@
-pub mod dispatch;
+pub mod dispatcher;
 pub mod tcp;

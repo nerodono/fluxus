@@ -27,8 +27,6 @@ pub enum Error {
     Toml(#[from] toml::de::Error),
 }
 
-pub type ConfigResult<T> = Result<T, Error>;
-
 config! {
     enum AuthorizationBackend {
         Password {
@@ -107,6 +105,7 @@ config! {
 }
 
 impl ProtocolRightsConfig {
+    #[must_use]
     pub fn to_bits(&self) -> Rights {
         let mut rights = Rights::empty();
 
@@ -140,7 +139,7 @@ impl Config {
         paths: &[P],
     ) -> Result<Self, Vec<Error>> {
         let mut errors = Vec::new();
-        for path in paths.into_iter().map(AsRef::as_ref) {
+        for path in paths.iter().map(AsRef::as_ref) {
             match Self::try_load(path) {
                 Ok(c) => return Ok(c),
                 Err(e) => {
@@ -153,7 +152,7 @@ impl Config {
     }
 
     /// Tries to load config from supplied path.
-    pub fn try_load(from: impl AsRef<Path>) -> ConfigResult<Self> {
+    pub fn try_load(from: impl AsRef<Path>) -> Result<Self, Error> {
         let content = fs::read_to_string(from)?;
         toml::from_str(&content).map_err(Into::into)
     }

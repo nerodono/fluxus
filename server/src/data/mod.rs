@@ -1,7 +1,7 @@
-pub mod command;
-pub mod server;
-
+pub mod commands;
 pub mod proxy;
+pub mod servers;
+
 pub mod user;
 
-pub mod idpool;
+pub mod id_pool;

@@ -8,7 +8,7 @@ use galaxy_network::{
 
 use crate::config::CompressionConfig;
 
-// FIXME: Polymorphic compressor / decompressor
+// TODO: Polymorphic compression
 pub fn create_compressor_decompressor(
     cfg: &CompressionConfig,
 ) -> (ZStdCctx, ZStdDctx) {

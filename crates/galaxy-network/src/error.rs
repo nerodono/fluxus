@@ -32,4 +32,10 @@ pub enum ReadError {
 
     #[error("Got invalid error code")]
     InvalidErrorCode,
+
+    #[error("Too long buffer supplied")]
+    TooLongBuffer,
+
+    #[error("Non-critical error reported")]
+    NonCritical,
 }

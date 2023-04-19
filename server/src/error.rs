@@ -1,26 +1,19 @@
 use integral_enum::integral_enum;
 use thiserror::Error;
 
-#[derive(Error)]
 #[integral_enum]
-pub enum UnmapClientError {
-    #[error("Client with specified ID does not exists")]
-    ClientDoesNotExists,
+#[derive(Error)]
+pub enum PermitSendError {
+    #[error("The channel is closed")]
+    Closed,
 }
 
-#[derive(Error)]
 #[integral_enum]
-pub enum MapClientError {
-    #[error("New ID would overflow underlying type")]
-    IdWouldOverflow,
-}
-
 #[derive(Error)]
-#[integral_enum]
-pub enum ChanSendError {
-    #[error("Requested ID does not exists")]
-    IdDoesNotExists,
+pub enum SendCommandError {
+    #[error("The channel is closed")]
+    Closed,
 
-    #[error("Requested channel is closed")]
-    ChannelIsClosed,
+    #[error("Client not found")]
+    ClientNotFound,
 }

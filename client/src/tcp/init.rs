@@ -142,8 +142,7 @@ async fn expect_server<R: Read, D>(
 async fn read_ping<R: Read, D>(
     reader: &mut GalaxyReader<R, D>,
 ) -> ReadResult<PingResponseDescriptor<'static>> {
-    let compression_algorithm =
-        reader.read_compression_algorithm().await?;
+    let compression_algorithm = reader.read_compression_algorithm().await?;
     let repr = reader.read_u8().await?;
     let compression_level = NonZeroU8::new(repr)
         .ok_or(ReadError::InvalidCompressionLevel(repr))?;
