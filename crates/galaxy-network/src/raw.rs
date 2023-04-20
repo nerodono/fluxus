@@ -72,6 +72,9 @@ pub enum ErrorCode {
 
     #[error("Server was stopped")]
     ServerStopped = 10,
+
+    #[error("Feature is unavailable")]
+    Unavailable = 11,
 }
 
 impl From<Packet> for u8 {
@@ -127,6 +130,14 @@ bitflags! {
 }
 
 impl Rights {
+    pub const fn can_select_domain(self) -> bool {
+        self.contains(Self::CAN_SELECT_DOMAIN)
+    }
+
+    pub const fn can_select_path(self) -> bool {
+        self.contains(Self::CAN_SELECT_PATH)
+    }
+
     pub const fn can_create_server(self, protocol: Protocol) -> bool {
         match protocol {
             Protocol::Http => self.intersects(Rights::CAN_CREATE_HTTP),

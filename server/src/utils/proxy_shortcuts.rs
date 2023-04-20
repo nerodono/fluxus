@@ -1,48 +1,32 @@
-use std::io;
-
-use galaxy_network::{
-    error::ReadError,
-    raw::ErrorCode,
-    reader::ReadResult,
-    writer::{
-        GalaxyWriter,
-        Write,
-    },
-};
-
 use super::compiler::cold_fn;
 use crate::{
     data::proxy::ServingProxy,
-    error::SendCommandError,
+    error::{
+        NonCriticalError,
+        NonCriticalResult,
+        SendCommandError,
+    },
 };
 
-pub async fn treat_send_result<C>(
-    writer: &mut GalaxyWriter<impl Write, C>,
+pub const fn treat_send_result(
     result: Result<(), SendCommandError>,
-) -> io::Result<()> {
+) -> NonCriticalResult<()> {
     if result.is_err() {
         cold_fn();
-        writer
-            .server()
-            .write_error(ErrorCode::ClientDoesNotExists)
-            .await
+        Err(NonCriticalError::ClientDoesNotExists)
     } else {
         Ok(())
     }
 }
 
-pub async fn require_proxy<'a, W: Write, C>(
-    writer: &mut GalaxyWriter<W, C>,
-    opt: &'a mut Option<ServingProxy>,
-) -> ReadResult<&'a mut ServingProxy> {
-    if let Some(ref mut serving) = opt {
-        Ok(serving)
-    } else {
-        cold_fn();
-        writer
-            .server()
-            .write_error(ErrorCode::NoServerWasCreated)
-            .await?;
-        Err(ReadError::NonCritical)
-    }
+pub fn require_proxy(
+    opt: &mut Option<ServingProxy>,
+) -> NonCriticalResult<&mut ServingProxy> {
+    opt.as_mut().map_or_else(
+        || {
+            cold_fn();
+            Err(NonCriticalError::NoServer)
+        },
+        Ok,
+    )
 }

@@ -1,10 +1,41 @@
-use tokio::sync::mpsc;
+use hyper::{
+    http::HeaderValue,
+    Method,
+};
+
+use super::base::HttpPermit;
+use crate::{
+    data::id_pool::IdPoolImpl,
+    error::HttpEndpointCreationError,
+};
 
 pub enum GlobalHttpCommand {
     Bind {
-        to: String,
-        chan: mpsc::UnboundedSender<HttpMasterCommand>,
+        to: Option<String>,
+        permit: HttpPermit,
+        pool: IdPoolImpl,
+    },
+
+    Unbind {
+        domain_or_path: String,
     },
 }
 
-pub enum HttpMasterCommand {}
+pub enum HttpMasterCommand {
+    Connected {
+        id: u16,
+    },
+    Request {
+        id: u16,
+        method: Method,
+        headers: Vec<(String, HeaderValue)>,
+    },
+
+    FailedToBindEndpoint {
+        error: HttpEndpointCreationError,
+    },
+    BoundEndpoint {
+        on: Option<String>,
+    },
+}
+pub enum HttpSlaveCommand {}

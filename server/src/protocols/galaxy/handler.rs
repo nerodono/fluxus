@@ -4,7 +4,6 @@ use std::{
 };
 
 use galaxy_network::{
-    error::ReadError,
     raw::{
         ErrorCode,
         PacketType,
@@ -32,16 +31,13 @@ use crate::{
         id_pool::IdPoolImpl,
         user::User,
     },
+    error::ProcessError,
     events::dispatcher::dispatch_command,
-    utils,
+    utils::{
+        self,
+        feature_gate::FeatureGate,
+    },
 };
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "http")] {
-        use tokio::sync::mpsc;
-        use crate::data::commands::http::GlobalHttpCommand;
-    }
-}
 
 pub async fn handle_connection<R, D, W, C>(
     mut reader: GalaxyReader<R, D>,
@@ -50,7 +46,7 @@ pub async fn handle_connection<R, D, W, C>(
     address: SocketAddr,
     id_pool_factory: impl Fn() -> IdPoolImpl,
 
-    #[cfg(feature = "http")] chan: mpsc::UnboundedSender<GlobalHttpCommand>,
+    gate: FeatureGate,
 ) -> ReadResult<()>
 where
     R: Read,
@@ -94,24 +90,12 @@ where
             }
 
             PacketType::Forward => {
-                events::forward(
-                    &mut reader,
-                    &mut writer,
-                    &mut user,
-                    packet.flags,
-                    &config,
-                )
-                .await
+                events::forward(&mut reader, &mut user, packet.flags, &config)
+                    .await
             }
 
             PacketType::Disconnect => {
-                events::disconnect(
-                    &mut reader,
-                    &mut writer,
-                    &mut user,
-                    packet.flags,
-                )
-                .await
+                events::disconnect(&mut reader, &mut user, packet.flags).await
             }
 
             PacketType::CreateServer => {
@@ -123,6 +107,7 @@ where
                     packet.flags,
                     &config,
                     &id_pool_factory,
+                    &gate,
                 )
                 .await
             }
@@ -152,11 +137,21 @@ where
         };
 
         match result {
-            Err(ReadError::NonCritical) | Ok(()) => {}
-            Err(e) => {
+            Err(ProcessError::NonCritical(concrete)) => {
+                utils::compiler::cold_fn();
+                tracing::error!(
+                    "{} non-critical error reported: {concrete}",
+                    address.bold()
+                );
+                _ = writer.server().write_error(concrete.into()).await;
+            }
+
+            Err(ProcessError::Read(e)) => {
                 utils::compiler::cold_fn();
                 return Err(e);
             }
+
+            Ok(()) => {}
         }
     }
 

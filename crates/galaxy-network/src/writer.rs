@@ -118,22 +118,48 @@ impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
         &mut self,
         descriptor: &CreateServerResponseDescriptor,
     ) -> io::Result<()> {
-        if let Some(port) = descriptor.port.map(NonZeroU16::get) {
-            self.0
-                .write_all(&[
-                    Packet::id(PacketType::CreateServer).encode(),
-                    (port & 0xff) as u8,
-                    (port >> 8) as u8,
-                ])
-                .await
-        } else {
-            self.0
-                .write_all(&[Packet::new(
-                    PacketType::CreateServer,
-                    PacketFlags::COMPRESSED,
-                )
-                .encode()])
-                .await
+        match descriptor {
+            CreateServerResponseDescriptor::Http { endpoint } => {
+                if let Some(ref endpoint) = endpoint {
+                    self.0
+                        .write_two_bufs(
+                            &[
+                                Packet::id(PacketType::CreateServer).encode(),
+                                endpoint.len() as u8,
+                            ],
+                            endpoint.as_bytes(),
+                        )
+                        .await
+                } else {
+                    self.0
+                        .write_all(&[Packet::new(
+                            PacketType::CreateServer,
+                            PacketFlags::SHORT,
+                        )
+                        .encode()])
+                        .await
+                }
+            }
+
+            CreateServerResponseDescriptor::Tcp { port } => {
+                if let Some(port) = port.map(NonZeroU16::get) {
+                    self.0
+                        .write_all(&[
+                            Packet::id(PacketType::CreateServer).encode(),
+                            (port & 0xff) as u8,
+                            (port >> 8) as u8,
+                        ])
+                        .await
+                } else {
+                    self.0
+                        .write_all(&[Packet::new(
+                            PacketType::CreateServer,
+                            PacketFlags::COMPRESSED,
+                        )
+                        .encode()])
+                        .await
+                }
+            }
         }
     }
 

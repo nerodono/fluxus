@@ -35,7 +35,4 @@ pub enum ReadError {
 
     #[error("Too long buffer supplied")]
     TooLongBuffer,
-
-    #[error("Non-critical error reported")]
-    NonCritical,
 }

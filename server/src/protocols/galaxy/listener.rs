@@ -12,22 +12,15 @@ use crate::{
     config::Config,
     data::id_pool::create_id_pool,
     protocols::galaxy::handler::handle_connection,
-    utils,
+    utils::{
+        self,
+        feature_gate::FeatureGate,
+    },
 };
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "http")] {
-        use crate::data::commands::http::GlobalHttpCommand;
-        use tokio::sync::mpsc;
-    }
-}
 
 pub async fn run_galaxy_listener(
     config: Arc<Config>,
-
-    #[cfg(feature = "http")] http_chan: mpsc::UnboundedSender<
-        GlobalHttpCommand,
-    >,
+    feature_gate: FeatureGate,
 ) -> eyre::Result<()> {
     let bold_galaxy = "`Galaxy`".bold();
 
@@ -61,9 +54,7 @@ pub async fn run_galaxy_listener(
         );
 
         let config = Arc::clone(&config);
-
-        #[cfg(feature = "http")]
-        let http_chan = http_chan.clone();
+        let gate = feature_gate.clone();
 
         tokio::spawn(async move {
             let (r_side, w_side) = stream.split();
@@ -76,8 +67,7 @@ pub async fn run_galaxy_listener(
                 config,
                 address,
                 create_id_pool,
-                #[cfg(feature = "http")]
-                http_chan,
+                gate,
             )
             .await;
             if matches!(result, Err(ReadError::UnknownPacket)) {

@@ -30,3 +30,4 @@ bitflags = "2.0.2"
 
 thiserror.workspace = true
 integral-enum.workspace = true
+derive_more = { version = "0.99.17", default-features = false, features = ["unwrap"] }

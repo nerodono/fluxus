@@ -19,6 +19,7 @@ use crate::{
         commands::base::MasterCommand,
         user::User,
     },
+    events::http::handle_http_command,
     utils::compiler::unlikely,
 };
 
@@ -42,9 +43,17 @@ where
         // `proxy.data` unwraps SAFETY: safe since sending permits
         // are statically checked
         match command {
+            #[cfg(feature = "galaxy")]
             MasterCommand::Tcp(tcp) => {
                 let server = unsafe { proxy.data.unwrap_tcp_unchecked() };
                 handle_tcp_command(server, address, tcp, writer, config).await
+            }
+
+            #[cfg(feature = "http")]
+            MasterCommand::Http(http) => {
+                let server = unsafe { proxy.data.unwrap_http_unchecked() };
+                handle_http_command(server, address, http, writer, config)
+                    .await
             }
         }
     }?;

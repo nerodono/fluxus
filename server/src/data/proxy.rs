@@ -1,15 +1,21 @@
 use tokio::sync::mpsc;
 
+#[cfg(feature = "http")]
+use super::commands::base::HttpPermit;
+#[cfg(feature = "galaxy")]
+use super::commands::base::TcpPermit;
 use super::{
-    commands::base::{
-        MasterCommand,
-        TcpPermit,
+    commands::base::MasterCommand,
+    servers::{
+        http::HttpServer,
+        tcp::TcpServer,
     },
-    id_pool::IdPoolImpl,
-    servers::tcp::TcpServer,
 };
 use crate::{
-    decl::define_unchecked_mut_unwraps,
+    decl::{
+        define_unchecked_mut_unwraps,
+        permit_issuers,
+    },
     utils::shutdown_token::{
         shutdown_token,
         ShutdownPermit,
@@ -19,19 +25,19 @@ use crate::{
 
 pub enum ProxyData {
     Tcp(TcpServer),
+    Http(HttpServer),
 }
 
 pub struct ServingProxy {
     send_chan: mpsc::UnboundedSender<MasterCommand>,
     pub recv_chan: mpsc::UnboundedReceiver<MasterCommand>,
     pub data: ProxyData,
-    pub pool: IdPoolImpl,
 
     _permit: ShutdownPermit,
 }
 
 impl ServingProxy {
-    pub fn new(pool: IdPoolImpl, data: ProxyData) -> (Self, ShutdownToken) {
+    pub fn new(data: ProxyData) -> (Self, ShutdownToken) {
         let (send_chan, recv_chan) = mpsc::unbounded_channel();
         let (token, permit) = shutdown_token();
         (
@@ -40,23 +46,18 @@ impl ServingProxy {
                 recv_chan,
                 data,
                 _permit: permit,
-                pool,
             },
             token,
         )
     }
 }
 
-impl ServingProxy {
-    pub fn issue_tcp_permit(&self) -> Option<TcpPermit> {
-        match self.data {
-            ProxyData::Tcp(..) => {
-                Some(unsafe { TcpPermit::new(self.send_chan.clone()) })
-            }
-        }
-    }
-}
+permit_issuers!(ServingProxy, ProxyData::[
+    Tcp("galaxy"),
+    Http("http")
+]);
 
 define_unchecked_mut_unwraps!(ProxyData::[
-    Tcp: TcpServer
+    Tcp("galaxy"): TcpServer,
+    Http("http"): HttpServer
 ]);

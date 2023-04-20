@@ -19,12 +19,8 @@ use galaxy_network::{
     reader::{
         GalaxyReader,
         Read,
-        ReadResult,
     },
-    shrinker::interface::{
-        Compressor,
-        Decompressor,
-    },
+    shrinker::interface::Decompressor,
     writer::{
         GalaxyWriter,
         Write,
@@ -40,21 +36,26 @@ use crate::{
         HttpDiscoveryMethod,
     },
     data::{
-        commands::tcp::TcpSlaveCommand,
-        id_pool::{
-            clone_id_pool,
-            IdPoolImpl,
+        commands::{
+            http::GlobalHttpCommand,
+            tcp::TcpSlaveCommand,
         },
+        id_pool::IdPoolImpl,
         proxy::{
             ProxyData,
             ServingProxy,
         },
-        servers::tcp::TcpServer,
+        servers::{
+            http::HttpServer,
+            tcp::TcpServer,
+        },
         user::User,
     },
+    error::ProcessResult,
     slaves::tcp::listener::tcp_slave_listen,
     utils::{
         compiler::unlikely,
+        feature_gate::FeatureGate,
         proxy_shortcuts::{
             require_proxy,
             treat_send_result,
@@ -67,7 +68,7 @@ pub async fn authorize_password<R, D, W, C>(
     writer: &mut GalaxyWriter<W, C>,
     user: &mut User,
     config: &Config,
-) -> ReadResult<()>
+) -> ProcessResult<()>
 where
     W: Write,
     R: Read,
@@ -100,43 +101,37 @@ where
     Ok(())
 }
 
-pub async fn disconnect<R, D, W, C>(
+pub async fn disconnect<R: Read, D>(
     reader: &mut GalaxyReader<R, D>,
-    writer: &mut GalaxyWriter<W, C>,
     user: &mut User,
     flags: PacketFlags,
-) -> ReadResult<()>
-where
-    W: Write,
-    R: Read,
-{
+) -> ProcessResult<()> {
     let client_id = reader.read_client_id(flags).await?;
-    let proxy = require_proxy(writer, &mut user.proxy).await?;
+    let proxy = require_proxy(&mut user.proxy)?;
 
     match &mut proxy.data {
         ProxyData::Tcp(tcp) => {
             treat_send_result(
-                writer,
                 tcp.send_command(client_id, TcpSlaveCommand::Disconnect),
-            )
-            .await?;
+            )?;
+        }
+
+        ProxyData::Http(http) => {
+            todo!();
         }
     }
 
     Ok(())
 }
 
-pub async fn forward<R, D, W, C>(
+pub async fn forward<R, D>(
     reader: &mut GalaxyReader<R, D>,
-    writer: &mut GalaxyWriter<W, C>,
     user: &mut User,
     flags: PacketFlags,
     config: &Config,
-) -> ReadResult<()>
+) -> ProcessResult<()>
 where
-    W: Write,
     R: Read,
-    C: Compressor,
     D: Decompressor,
 {
     let max_read = config.server.buffering.read.get();
@@ -146,23 +141,23 @@ where
 
     if unlikely(length >= max_read) {
         _ = reader.skip_n_bytes::<128>(length).await;
-        return Err(ReadError::TooLongBuffer);
+        return Err(ReadError::TooLongBuffer.into());
     }
 
     let buffer = reader
         .try_read_forward_buffer(length, |size| size.get() <= max_read, flags)
         .await?;
-    let proxy = require_proxy(writer, &mut user.proxy).await?;
+    let proxy = require_proxy(&mut user.proxy)?;
     match &mut proxy.data {
         ProxyData::Tcp(tcp) => {
-            treat_send_result(
-                writer,
-                tcp.send_command(
-                    client_id,
-                    TcpSlaveCommand::Forward { buffer },
-                ),
-            )
-            .await?;
+            treat_send_result(tcp.send_command(
+                client_id,
+                TcpSlaveCommand::Forward { buffer },
+            ))?;
+        }
+
+        ProxyData::Http(http) => {
+            todo!();
         }
     }
     Ok(())
@@ -176,7 +171,8 @@ pub async fn create_server<R, D, W, C>(
     flags: PacketFlags,
     config: &Config,
     id_pool_factory: impl Fn() -> IdPoolImpl,
-) -> ReadResult<()>
+    gate: &FeatureGate,
+) -> ProcessResult<()>
 where
     W: Write,
     R: Read,
@@ -188,12 +184,30 @@ where
         Protocol::Http => {
             let discovery_data = reader.read_string_prefixed().await?;
             let Some(ref http_cfg) = config.http else {
-                writer.server().write_error(ErrorCode::Unsupported).await?;
+                _ = writer.server().write_error(ErrorCode::Unsupported).await;
                 return Ok(());
             };
+            let feature = gate.http()?;
 
+            // TODO: permission controlling
             match http_cfg.discovery_method {
-                HttpDiscoveryMethod::Path => {}
+                HttpDiscoveryMethod::Path => {
+                    let pool = id_pool_factory();
+                    let http_server = HttpServer::new(
+                        discovery_data.clone(),
+                        feature.clone(),
+                    );
+                    let (server, _) =
+                        ServingProxy::new(ProxyData::Http(http_server));
+                    let permit = server.issue_http_permit().unwrap();
+                    user.proxy = Some(server);
+
+                    feature.send_command(GlobalHttpCommand::Bind {
+                        to: Some(discovery_data),
+                        permit,
+                        pool,
+                    })?;
+                }
             }
         }
 
@@ -232,15 +246,15 @@ where
                 bound_to.bold()
             );
 
+            let pool = id_pool_factory();
             let (created_proxy, shutdown_token) = ServingProxy::new(
-                id_pool_factory(),
-                ProxyData::Tcp(TcpServer::new(id_pool_factory())),
+                ProxyData::Tcp(TcpServer::new(pool.clone())),
             );
             let permit = created_proxy.issue_tcp_permit().unwrap();
 
             tokio::spawn(tcp_slave_listen(
                 permit,
-                clone_id_pool(&created_proxy.pool),
+                pool,
                 shutdown_token,
                 listener,
                 address,
@@ -250,7 +264,7 @@ where
 
             writer
                 .server()
-                .write_server(&CreateServerResponseDescriptor {
+                .write_server(&CreateServerResponseDescriptor::Tcp {
                     port: if port == 0 {
                         NonZeroU16::new(bound_to.port())
                     } else {
@@ -279,7 +293,7 @@ where
 pub async fn ping<W: Write, C>(
     writer: &mut GalaxyWriter<W, C>,
     config: &Config,
-) -> ReadResult<()> {
+) -> ProcessResult<()> {
     writer
         .server()
         .write_ping(&PingResponseDescriptor {

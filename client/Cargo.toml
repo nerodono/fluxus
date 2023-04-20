@@ -3,33 +3,6 @@ name = "client"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "neo"
-path = "bin/main.rs"
-
-[lib]
-name = "neo"
-path = "src/lib.rs"
-
-[dependencies.galaxy-network]
-version = "0.1.0"
-path = "../crates/galaxy-network"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustc-hash.workspace = true
-eyre.workspace = true
-
-thiserror.workspace = true
-integral-enum.workspace = true
-
-tokio.workspace = true
-num_cpus.workspace = true
-
-clap = { version = "4.2.1", features = ["derive"] }
-owo-colors.workspace = true
-envy.workspace = true
-serde.workspace = true
-
-tracing.workspace = true
-tracing-subscriber.workspace = true
-humansize = "2.1.3"

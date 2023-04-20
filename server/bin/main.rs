@@ -9,10 +9,14 @@ use std::{
     sync::Arc,
 };
 
+use cfg_if::cfg_if;
 use eyre::Context;
-use neo::config::{
-    Config,
-    LogLevel,
+use neo::{
+    config::{
+        Config,
+        LogLevel,
+    },
+    utils::feature_gate::FeatureGate,
 };
 use owo_colors::OwoColorize;
 use tokio::{
@@ -22,17 +26,18 @@ use tokio::{
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
-#[rustfmt::skip]
-#[cfg(feature = "galaxy")]
-use neo::protocols::galaxy;
-#[cfg(feature = "http")]
-use neo::protocols::http;
-
-#[rustfmt::skip]
-#[cfg(feature = "http")]
-use tokio::sync::mpsc;
-#[cfg(feature = "http")]
-use neo::data::commands::http::GlobalHttpCommand;
+cfg_if! {
+    if #[cfg(feature = "galaxy")] {
+        use neo::protocols::galaxy;
+    }
+}
+cfg_if! {
+    if #[cfg(feature = "http")] {
+        use tokio::sync::mpsc;
+        use neo::data::commands::http::GlobalHttpCommand;
+        use neo::protocols::http;
+    }
+}
 
 #[derive(Debug, serde::Deserialize)]
 struct EnvParams {
@@ -50,20 +55,24 @@ async fn async_main(config: Config) -> eyre::Result<()> {
     let mut handles = Vec::new();
 
     #[cfg(feature = "http")]
-    let http_tx = {
+    let http_feature = {
+        use neo::features::http::HttpFeature;
+
         let (tx, rx) = mpsc::unbounded_channel();
         handles.push(start_http(Arc::clone(&config), rx));
-        tx
+        HttpFeature::new(tx)
     };
 
-    #[cfg(feature = "galaxy")]
-    handles.push(start_galaxy(
-        config,
+    let feature_gate = FeatureGate::new(
         #[cfg(feature = "http")]
-        http_tx,
-    ));
+        http_feature,
+    );
+
+    #[cfg(feature = "galaxy")]
+    handles.push(start_galaxy(config, feature_gate));
 
     for handle in handles {
+        // TODO: Handle concurrently
         _ = handle.await;
     }
 
@@ -96,15 +105,9 @@ fn start_http(
 #[cfg(feature = "galaxy")]
 fn start_galaxy(
     config: Arc<Config>,
-    #[cfg(feature = "http")] http_chan: mpsc::UnboundedSender<
-        GlobalHttpCommand,
-    >,
+    gate: FeatureGate,
 ) -> JoinHandle<eyre::Result<()>> {
-    tokio::spawn(galaxy::listener::run_galaxy_listener(
-        config,
-        #[cfg(feature = "http")]
-        http_chan,
-    ))
+    tokio::spawn(galaxy::listener::run_galaxy_listener(config, gate))
 }
 
 //
