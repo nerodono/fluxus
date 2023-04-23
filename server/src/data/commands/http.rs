@@ -1,8 +1,3 @@
-use hyper::{
-    http::HeaderValue,
-    Method,
-};
-
 use super::base::HttpPermit;
 use crate::{
     data::id_pool::IdPoolImpl,
@@ -22,20 +17,7 @@ pub enum GlobalHttpCommand {
 }
 
 pub enum HttpMasterCommand {
-    Connected {
-        id: u16,
-    },
-    Request {
-        id: u16,
-        method: Method,
-        headers: Vec<(String, HeaderValue)>,
-    },
-
-    FailedToBindEndpoint {
-        error: HttpEndpointCreationError,
-    },
-    BoundEndpoint {
-        on: Option<String>,
-    },
+    FailedToBindEndpoint { error: HttpEndpointCreationError },
+    BoundEndpoint { on: Option<String> },
 }
 pub enum HttpSlaveCommand {}

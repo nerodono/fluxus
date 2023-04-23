@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use hyper::server::conn::http1;
 use owo_colors::OwoColorize;
 use tokio::{
     net::TcpListener,
@@ -11,10 +10,7 @@ use crate::{
     config::Config,
     data::commands::http::GlobalHttpCommand,
     features::http::storage::HttpStorage,
-    protocols::http::{
-        command_handler::handle_command,
-        service::HttpProxyService,
-    },
+    protocols::http::command_handler::handle_command,
 };
 
 pub async fn run_http_listener(

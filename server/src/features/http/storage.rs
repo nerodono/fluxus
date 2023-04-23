@@ -3,10 +3,6 @@ use std::collections::{
     HashMap,
 };
 
-use hyper::{
-    body::Bytes,
-    http::HeaderValue,
-};
 use idpool::interface::IdPool;
 use tokio::sync::RwLock;
 
@@ -31,16 +27,7 @@ pub struct HttpStorage {
     endpoints: RwLock<HashMap<String, HttpEndpoint>>,
 }
 
-impl HttpEndpoint {
-    pub async fn notify_connection(&self) -> Option<u16> {
-        self.pool.lock().await.request().and_then(|id| {
-            self.permit
-                .send(HttpMasterCommand::Connected { id })
-                .ok()
-                .map(|()| id)
-        })
-    }
-}
+impl HttpEndpoint {}
 
 impl HttpStorage {
     pub const fn raw_endpoints(
