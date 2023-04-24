@@ -1,5 +1,5 @@
 #![feature(type_alias_impl_trait)]
-#![warn(
+#![deny(
     clippy::nursery,
     clippy::perf,
     clippy::correctness,
@@ -13,7 +13,8 @@
     clippy::module_name_repetitions,
     clippy::future_not_send,
     clippy::too_many_arguments,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::unused_async
 )]
 
 mod decl;

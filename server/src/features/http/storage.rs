@@ -3,15 +3,11 @@ use std::collections::{
     HashMap,
 };
 
-use idpool::interface::IdPool;
 use tokio::sync::RwLock;
 
 use crate::{
     data::{
-        commands::{
-            base::HttpPermit,
-            http::HttpMasterCommand,
-        },
+        commands::base::HttpPermit,
         id_pool::IdPoolImpl,
     },
     error::HttpEndpointCreationError,
@@ -24,7 +20,7 @@ pub struct HttpEndpoint {
 
 #[derive(Default)]
 pub struct HttpStorage {
-    endpoints: RwLock<HashMap<String, HttpEndpoint>>,
+    endpoints: RwLock<HashMap<Vec<u8>, HttpEndpoint>>,
 }
 
 impl HttpEndpoint {}
@@ -32,20 +28,21 @@ impl HttpEndpoint {}
 impl HttpStorage {
     pub const fn raw_endpoints(
         &self,
-    ) -> &RwLock<HashMap<String, HttpEndpoint>> {
+    ) -> &RwLock<HashMap<Vec<u8>, HttpEndpoint>> {
         &self.endpoints
     }
 
-    pub async fn unbind_endpoint(&self, endpoint: &str) {
+    pub async fn unbind_endpoint(&self, endpoint: &[u8]) {
         self.raw_endpoints()
             .write()
             .await
             .remove(endpoint);
     }
 
+    #[allow(clippy::significant_drop_tightening)]
     pub async fn try_bind_endpoint(
         &self,
-        domain_or_path: String,
+        domain_or_path: Vec<u8>,
         pool: IdPoolImpl,
         permit: &HttpPermit,
     ) -> Result<(), HttpEndpointCreationError> {

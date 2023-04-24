@@ -3,6 +3,7 @@ use std::{
     net::SocketAddr,
 };
 
+use cfg_if::cfg_if;
 use galaxy_network::{
     raw::ErrorCode,
     shrinker::interface::Compressor,
@@ -12,14 +13,24 @@ use galaxy_network::{
     },
 };
 
-use super::tcp::handle_tcp_command;
+cfg_if! {
+    if #[cfg(feature = "http")] {
+        use crate::events::http::handle_http_command;
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "galaxy")] {
+        use super::tcp::handle_tcp_command;
+    }
+}
+
 use crate::{
     config::Config,
     data::{
         commands::base::MasterCommand,
         user::User,
     },
-    events::http::handle_http_command,
     utils::compiler::unlikely,
 };
 
@@ -37,35 +48,39 @@ where
     // SAFETY: safe since command may arrive only if recv
     // channel is alive. recv channel is alive only if
     // `user.proxy` is `Some`.
-    let stop = {
-        let proxy = unsafe { user.proxy.as_mut().unwrap_unchecked() };
+    #[cfg(any(feature = "galaxy", feature = "http"))]
+    {
+        // Scope limitation is needed to revoke &mut borrow of the
+        // proxy variant
+        let stop = {
+            let proxy = unsafe { user.proxy.as_mut().unwrap_unchecked() };
 
-        // `proxy.data` unwraps SAFETY: safe since sending permits
-        // are statically checked
-        match command {
-            #[cfg(feature = "galaxy")]
-            MasterCommand::Tcp(tcp) => {
-                let server = unsafe { proxy.data.unwrap_tcp_unchecked() };
-                handle_tcp_command(server, address, tcp, writer, config).await
-            }
+            // `proxy.data` unwraps SAFETY: safe since sending permits
+            // are statically checked
+            match command {
+                #[cfg(feature = "galaxy")]
+                MasterCommand::Tcp(tcp) => {
+                    let server = unsafe { proxy.data.unwrap_tcp_unchecked() };
+                    handle_tcp_command(server, address, tcp, writer, config)
+                        .await
+                }
 
-            #[cfg(feature = "http")]
-            MasterCommand::Http(http) => {
-                let server = unsafe { proxy.data.unwrap_http_unchecked() };
-                handle_http_command(server, address, http, writer, config)
-                    .await
+                #[cfg(feature = "http")]
+                MasterCommand::Http(http) => {
+                    let server =
+                        unsafe { proxy.data.unwrap_http_unchecked() };
+                    handle_http_command(server, address, http, writer, config)
+                        .await
+                }
             }
+        }?;
+        if unlikely(stop) {
+            user.proxy = None;
+            writer
+                .server()
+                .write_error(ErrorCode::ServerStopped)
+                .await?;
         }
-    }?;
-
-    // Scope limitation is needed to revoke &mut borrow of the
-    // proxy variant
-    if unlikely(stop) {
-        user.proxy = None;
-        writer
-            .server()
-            .write_error(ErrorCode::ServerStopped)
-            .await?;
     }
 
     Ok(())

@@ -4,6 +4,7 @@ use std::{
     num::NonZeroU16,
 };
 
+use cfg_if::cfg_if;
 use galaxy_network::{
     descriptors::{
         CompressionDescriptor,
@@ -29,26 +30,27 @@ use galaxy_network::{
 use owo_colors::OwoColorize;
 use tokio::net::TcpListener;
 
+cfg_if! {
+    if #[cfg(feature = "http")] {
+        use crate::config::HttpDiscoveryMethod;
+        use crate::data::servers::http::HttpServer;
+        use crate::data::commands::http::GlobalHttpCommand;
+    }
+}
+
 use crate::{
     config::{
         AuthorizationBackend,
         Config,
-        HttpDiscoveryMethod,
     },
     data::{
-        commands::{
-            http::GlobalHttpCommand,
-            tcp::TcpSlaveCommand,
-        },
+        commands::tcp::TcpSlaveCommand,
         id_pool::IdPoolImpl,
         proxy::{
             ProxyData,
             ServingProxy,
         },
-        servers::{
-            http::HttpServer,
-            tcp::TcpServer,
-        },
+        servers::tcp::TcpServer,
         user::User,
     },
     error::ProcessResult,
@@ -116,6 +118,7 @@ pub async fn disconnect<R: Read, D>(
             )?;
         }
 
+        #[cfg(feature = "http")]
         ProxyData::Http(http) => {
             todo!();
         }
@@ -156,6 +159,7 @@ where
             ))?;
         }
 
+        #[cfg(feature = "http")]
         ProxyData::Http(http) => {
             todo!();
         }
@@ -171,7 +175,7 @@ pub async fn create_server<R, D, W, C>(
     flags: PacketFlags,
     config: &Config,
     id_pool_factory: impl Fn() -> IdPoolImpl,
-    gate: &FeatureGate,
+    #[allow(unused)] gate: &FeatureGate,
 ) -> ProcessResult<()>
 where
     W: Write,
@@ -182,7 +186,7 @@ where
     match protocol {
         #[cfg(feature = "http")]
         Protocol::Http => {
-            let discovery_data = reader.read_string_prefixed().await?;
+            let discovery_data = reader.read_bytes_prefixed().await?;
             let Some(ref http_cfg) = config.http else {
                 _ = writer.server().write_error(ErrorCode::Unsupported).await;
                 return Ok(());

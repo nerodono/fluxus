@@ -1,9 +1,18 @@
+use cfg_if::cfg_if;
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::{
-    http::HttpMasterCommand,
-    tcp::TcpMasterCommand,
-};
+cfg_if! {
+    if #[cfg(feature = "http")] {
+        use super::http::HttpMasterCommand;
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "galaxy")] {
+        use super::tcp::TcpMasterCommand;
+    }
+}
+
 use crate::decl::chan_permits;
 
 pub enum MasterCommand {

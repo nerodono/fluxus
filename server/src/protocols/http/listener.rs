@@ -35,6 +35,7 @@ pub async fn run_http_listener(
     };
     let bound = listener.local_addr()?;
     let storage = Arc::new(HttpStorage::new());
+    let read_buffer = config.server.buffering.read.get();
 
     tracing::info!("Started {bold_http} server on {}", bound.bold());
 

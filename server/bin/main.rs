@@ -49,10 +49,9 @@ struct EnvParams {
     workers: Option<NonZeroUsize>,
 }
 
-#[allow(clippy::vec_init_then_push)]
 async fn async_main(config: Config) -> eyre::Result<()> {
     let config = Arc::new(config);
-    let mut handles = Vec::new();
+    let mut handles: Vec<JoinHandle<eyre::Result<()>>> = Vec::new();
 
     #[cfg(feature = "http")]
     let http_feature = {

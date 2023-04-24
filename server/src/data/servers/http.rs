@@ -14,14 +14,14 @@ use crate::{
 };
 
 pub struct HttpServer {
-    domain_or_path: Option<String>,
+    domain_or_path: Option<Vec<u8>>,
     clients: FxHashMap<u16, HttpPermit>,
     feature: HttpFeature,
     started: bool,
 }
 
 impl HttpServer {
-    pub fn new(domain_or_path: String, feature: HttpFeature) -> Self {
+    pub fn new(domain_or_path: Vec<u8>, feature: HttpFeature) -> Self {
         Self {
             domain_or_path: Some(domain_or_path),
             feature,
@@ -36,14 +36,14 @@ impl HttpServer {
         self.started = true;
     }
 
-    fn domain_or_path(&self) -> &String {
+    fn domain_or_path(&self) -> &[u8] {
         unsafe { self.domain_or_path.as_ref().unwrap_unchecked() }
     }
 
-    fn take_domain_or_path_out(&mut self) -> String {
+    fn take_domain_or_path_out(&mut self) -> Vec<u8> {
         let domain_or_path =
             unsafe { mem::take(&mut self.domain_or_path).unwrap_unchecked() };
-        self.domain_or_path = Some(String::new());
+        self.domain_or_path = Some(Vec::new());
         domain_or_path
     }
 }

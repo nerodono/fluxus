@@ -1,6 +1,6 @@
 [package]
 name = "server"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 [[bin]]
@@ -8,7 +8,7 @@ name = "neogrokd"
 path = "bin/main.rs"
 
 [features]
-default = ["galaxy", "http", "nightly"]
+default = ["galaxy", "http"]
 http = []
 galaxy = []
 nightly = []
@@ -24,9 +24,6 @@ version = "0.1.0"
 [dependencies.galaxy-network]
 path = "../crates/galaxy-network"
 version = "0.1.0"
-
-[dependencies.cute-gorgon]
-git = "https://github.com/nerodono/cute-gorgon"
 
 [dependencies]
 envy.workspace = true
@@ -45,6 +42,5 @@ toml = "0.7.3"
 num_cpus.workspace = true
 rustc-hash.workspace = true
 paste = "1.0.12"
-futures-util = { version = "0.3.28", default-features = false }
-http-body-util = "0.1.0-rc.2"
 cfg-if = "1.0.0"
+const_format = "0.2.30"

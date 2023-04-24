@@ -8,3 +8,4 @@ pub mod feature_gate;
 pub mod proxy_shortcuts;
 
 pub mod http_paths;
+pub mod http_responses;

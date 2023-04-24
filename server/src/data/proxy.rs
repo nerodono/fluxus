@@ -1,16 +1,21 @@
+use cfg_if::cfg_if;
 use tokio::sync::mpsc;
 
-#[cfg(feature = "http")]
-use super::commands::base::HttpPermit;
-#[cfg(feature = "galaxy")]
-use super::commands::base::TcpPermit;
-use super::{
-    commands::base::MasterCommand,
-    servers::{
-        http::HttpServer,
-        tcp::TcpServer,
-    },
-};
+cfg_if! {
+    if #[cfg(feature = "http")] {
+        use super::commands::base::HttpPermit;
+        use super::servers::http::HttpServer;
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "galaxy")] {
+        use super::commands::base::TcpPermit;
+        use super::servers::tcp::TcpServer;
+    }
+}
+
+use super::commands::base::MasterCommand;
 use crate::{
     decl::{
         define_unchecked_mut_unwraps,
@@ -24,7 +29,10 @@ use crate::{
 };
 
 pub enum ProxyData {
+    #[cfg(feature = "galaxy")]
     Tcp(TcpServer),
+
+    #[cfg(feature = "http")]
     Http(HttpServer),
 }
 

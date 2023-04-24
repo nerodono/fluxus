@@ -6,13 +6,13 @@ use crate::{
 
 pub enum GlobalHttpCommand {
     Bind {
-        to: Option<String>,
+        to: Option<Vec<u8>>,
         permit: HttpPermit,
         pool: IdPoolImpl,
     },
 
     Unbind {
-        domain_or_path: String,
+        domain_or_path: Vec<u8>,
     },
 }
 
