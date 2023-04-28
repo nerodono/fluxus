@@ -1,8 +1,6 @@
-![Logo](assets/Logo.svg)
-
 # Summary
 
-Neogrok is the open source alternative to the [ngrok](https://ngrok.com).
+Fluxus is the open source network tunnel server.
 
 # Plan
 
@@ -13,7 +11,7 @@ Neogrok is the open source alternative to the [ngrok](https://ngrok.com).
 
 ## Supported protocols
 
-- [ ] **HTTP** - `high priority`
+- [ ] **HTTP** - `high priority` (in progress)
 - [x] **TCP**  - `high priority`
 - [ ] **UDP**  - `low priority`
 

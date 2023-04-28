@@ -1,0 +1,24 @@
+[build]
+rustflags = [
+    # Deny
+    "-Dclippy::nursery",
+    "-Dclippy::perf",
+    "-Dclippy::correctness",
+    "-Dclippy::pedantic",
+    "-Dclippy::style",
+    "-Dclippy::complexity",
+
+    # Allow
+    "-Aclippy::missing_errors_doc",
+    "-Aclippy::must_use_candidate",
+    "-Aclippy::future_not_send",
+    "-Aclippy::too_many_arguments",
+    "-Aclippy::too_many_lines",
+    "-Aclippy::unused_async",
+    "-Aclippy::module-name-repetitions",
+    "-Aclippy::cast-possible-truncation",
+    "-Aclippy::cast-lossless",
+    "-Aclippy::trivially-copy-pass-by-ref",
+    "-Aclippy::similar-names",
+    "-Aclippy::missing-panics-doc",         # Annoying lint, triggers even on todo! macro
+]

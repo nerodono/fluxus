@@ -2,7 +2,7 @@ pub trait IdPool: Send {
     /// Type of ID in the pool
     type Id;
 
-    /// Request ID from the IDPool.
+    /// Request ID from the ``IDPool``.
     ///
     /// Returns [`None`] if next ID would overflow
     /// underlying type.

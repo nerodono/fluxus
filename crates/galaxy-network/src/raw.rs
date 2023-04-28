@@ -99,7 +99,7 @@ impl Packet {
     }
 
     #[inline]
-    pub fn from_u8(u: u8) -> Option<Packet> {
+    pub fn from_u8(u: u8) -> Option<Self> {
         let flags = PacketFlags::from_bits(u & 0b111)?;
         PacketType::try_from(u >> 3)
             .map(|type_| Self::new(type_, flags))
@@ -140,17 +140,17 @@ impl Rights {
 
     pub const fn can_create_server(self, protocol: Protocol) -> bool {
         match protocol {
-            Protocol::Http => self.intersects(Rights::CAN_CREATE_HTTP),
-            Protocol::Tcp => self.intersects(Rights::CAN_CREATE_TCP),
-            Protocol::Udp => self.intersects(Rights::CAN_CREATE_UDP),
+            Protocol::Http => self.intersects(Self::CAN_CREATE_HTTP),
+            Protocol::Tcp => self.intersects(Self::CAN_CREATE_TCP),
+            Protocol::Udp => self.intersects(Self::CAN_CREATE_UDP),
         }
     }
 
     pub const fn can_select_port(self, protocol: Protocol) -> bool {
         match protocol {
             Protocol::Http => false,
-            Protocol::Tcp => self.intersects(Rights::CAN_SELECT_TCP_PORT),
-            Protocol::Udp => self.intersects(Rights::CAN_SELECT_UDP_PORT),
+            Protocol::Tcp => self.intersects(Self::CAN_SELECT_TCP_PORT),
+            Protocol::Udp => self.intersects(Self::CAN_SELECT_UDP_PORT),
         }
     }
 }

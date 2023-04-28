@@ -51,7 +51,7 @@ impl<'a, W: Write, C> GalaxyClientWriter<'a, W, C> {
             Protocol::Tcp => PacketFlags::COMPRESSED,
             Protocol::Udp => PacketFlags::SHORT,
         };
-        let port = port.map(NonZeroU16::get).unwrap_or(0);
+        let port = port.map_or(0, NonZeroU16::get);
 
         // FIXME: http settings?
         self.raw_mut()
@@ -319,6 +319,7 @@ impl<W: Write, C> GalaxyWriter<W, C> {
 }
 
 impl<W, C> GalaxyWriter<W, C> {
+    #[allow(clippy::missing_const_for_fn)]
     pub fn into_inner(self) -> (W, C) {
         (self.raw, self.compressor)
     }

@@ -226,6 +226,7 @@ impl<R: Read, D> GalaxyReader<R, D> {
 }
 
 impl<R, D> GalaxyReader<R, D> {
+    #[allow(clippy::missing_const_for_fn)]
     pub fn into_inner(self) -> (R, D) {
         (self.raw, self.decompressor)
     }

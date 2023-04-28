@@ -8,7 +8,13 @@ use galaxy_network::{
 
 use crate::config::CompressionConfig;
 
-// TODO: Polymorphic compression
+/// Creates compressor/decompressor using the provided
+/// config
+///
+/// # TODO
+///
+/// Polymorphic compressor / decompressor, currently
+/// function returns only ``ZStd`` compressor/decompressor
 pub fn create_compressor_decompressor(
     cfg: &CompressionConfig,
 ) -> (ZStdCctx, ZStdDctx) {

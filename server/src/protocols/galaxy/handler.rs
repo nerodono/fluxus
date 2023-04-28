@@ -8,150 +8,100 @@ use galaxy_network::{
         ErrorCode,
         PacketType,
     },
-    reader::{
-        GalaxyReader,
-        Read,
-        ReadResult,
-    },
-    shrinker::interface::{
-        Compressor,
-        Decompressor,
-    },
-    writer::{
-        GalaxyWriter,
-        Write,
-    },
+    reader::GalaxyReader,
+    writer::GalaxyWriter,
 };
 use owo_colors::OwoColorize;
-
-use super::events;
-use crate::{
-    config::Config,
-    data::{
-        id_pool::IdPoolImpl,
-        user::User,
-    },
-    error::ProcessError,
-    events::dispatcher::dispatch_command,
-    utils::{
-        self,
-        feature_gate::FeatureGate,
-    },
+use tokio::{
+    io::BufReader,
+    net::TcpStream,
 };
 
-pub async fn handle_connection<R, D, W, C>(
-    mut reader: GalaxyReader<R, D>,
-    mut writer: GalaxyWriter<W, C>,
-    config: Arc<Config>,
+use super::connection::Connection;
+use crate::{
+    config::Config,
+    data::user::User,
+    error::{
+        ProcessError,
+        ProcessResult,
+    },
+    utils,
+};
+
+pub async fn handle_connection(
+    mut stream: TcpStream,
     address: SocketAddr,
-    id_pool_factory: impl Fn() -> IdPoolImpl,
+    config: Arc<Config>,
+) -> ProcessResult<()> {
+    let (raw_reader, raw_writer) = stream.split();
+    let (compressor, decompressor) =
+        utils::compression::create_compressor_decompressor(
+            &config.compression,
+        );
+    let (reader, writer) = (
+        GalaxyReader::new(
+            BufReader::with_capacity(
+                config.server.buffering.read.get(),
+                raw_reader,
+            ),
+            decompressor,
+        ),
+        GalaxyWriter::new(raw_writer, compressor),
+    );
+    let mut connection = Connection {
+        user: User::new(config.rights.on_connect.to_bits()),
 
-    gate: FeatureGate,
-) -> ReadResult<()>
-where
-    R: Read,
-    W: Write,
-    D: Decompressor,
-    C: Compressor,
-{
-    let mut user = User::new(config.rights.on_connect.to_bits());
+        reader,
+        writer,
+        address,
+        config,
+    };
+
     loop {
-        let packet;
-        tokio::select! {
-            command = user.recv_command() => {
-                let Some(command) = command else {
-                    tracing::error!(
-                        "Command channel accidentely closed, closing connection for {}",
-                        address.bold()
-                    );
-                    break;
-                };
+        let packet = connection.reader.read_packet_type().await?;
 
-                dispatch_command(
-                    &mut writer,
-                    address,
-                    &mut user,
-                    command,
-                    &config
-                ).await?;
+        let processing_result = match packet.type_ {
+            PacketType::Ping => connection.ping().await,
 
-                continue;
-            }
-
-            packet_ty = reader.read_packet_type() => {
-                packet = packet_ty?;
-            }
-        }
-
-        let result = match packet.type_ {
-            PacketType::Ping => {
-                tracing::info!("{} ping request", address.bold());
-                events::ping(&mut writer, &config).await
+            PacketType::CreateServer => {
+                todo!();
             }
 
             PacketType::Forward => {
-                events::forward(&mut reader, &mut user, packet.flags, &config)
-                    .await
+                todo!();
             }
 
             PacketType::Disconnect => {
-                events::disconnect(&mut reader, &mut user, packet.flags).await
-            }
-
-            PacketType::CreateServer => {
-                events::create_server(
-                    &mut reader,
-                    &mut writer,
-                    &mut user,
-                    address,
-                    packet.flags,
-                    &config,
-                    &id_pool_factory,
-                    &gate,
-                )
-                .await
+                todo!();
             }
 
             PacketType::AuthorizePassword => {
-                events::authorize_password(
-                    &mut reader,
-                    &mut writer,
-                    &mut user,
-                    &config,
-                )
-                .await
+                connection.authorize_password().await
             }
 
-            p => {
-                utils::compiler::cold_fn();
+            pkt_ty => {
                 tracing::error!(
-                    "{} sent unsupported packet: {p:?}",
-                    address.bold()
+                    "{} sent unknown packet ({pkt_ty:?}), disconnecting...",
+                    connection.address.bold()
                 );
-                _ = writer
-                    .server()
-                    .write_error(ErrorCode::Unsupported)
-                    .await;
                 break;
             }
         };
 
-        match result {
-            Err(ProcessError::NonCritical(concrete)) => {
-                utils::compiler::cold_fn();
+        match processing_result {
+            Ok(()) => {}
+            Err(ProcessError::NonCritical(non_critical_error)) => {
                 tracing::error!(
-                    "{} non-critical error reported: {concrete}",
+                    "{} got non-critical error: {non_critical_error}",
                     address.bold()
                 );
-                _ = writer.server().write_error(concrete.into()).await;
+                _ = connection
+                    .writer
+                    .server()
+                    .write_error(non_critical_error.into())
+                    .await;
             }
-
-            Err(ProcessError::Read(e)) => {
-                utils::compiler::cold_fn();
-                return Err(e);
-            }
-
-            Ok(()) => {}
+            Err(e) => return Err(e),
         }
     }
 

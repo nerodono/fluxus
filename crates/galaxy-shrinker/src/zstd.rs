@@ -49,7 +49,7 @@ impl !Sync for ZStdDctx {}
 impl Decompressor for ZStdDctx {
     fn try_get_decompressed_size(&self, src: &[u8]) -> Option<NonZeroUsize> {
         let size = unsafe {
-            ZSTD_getDecompressedSize(src.as_ptr() as *const _, src.len())
+            ZSTD_getDecompressedSize(src.as_ptr().cast(), src.len())
         };
         NonZeroUsize::new(size as _)
     }
@@ -64,9 +64,9 @@ impl Decompressor for ZStdDctx {
             let spare = buffer.spare_capacity_mut();
             let size = ZSTD_decompressDCtx(
                 self.dctx.as_ptr(),
-                spare.as_ptr() as *mut _,
+                spare.as_mut_ptr().cast(),
                 spare.len(),
-                src.as_ptr() as *const _,
+                src.as_ptr().cast(),
                 src.len(),
             );
 
@@ -88,9 +88,9 @@ impl Compressor for ZStdCctx {
             let spare = buffer.spare_capacity_mut();
             let result = ZSTD_compressCCtx(
                 self.cctx.as_ptr(),
-                spare.as_ptr() as *mut _,
+                spare.as_mut_ptr().cast(),
                 capacity,
-                src.as_ptr() as *const _,
+                src.as_ptr().cast(),
                 src.len(),
                 self.level.get() as _,
             );

@@ -4,18 +4,18 @@ version = "1.0.0"
 edition = "2021"
 
 [[bin]]
-name = "neogrokd"
+name = "fluxusd"
 path = "bin/main.rs"
 
+[lib]
+name = "fluxus"
+path = "src/lib.rs"
+
 [features]
-default = ["galaxy", "http"]
+default = ["tcp", "http", "galaxy"]
+tcp = []
 http = []
 galaxy = []
-nightly = []
-
-[lib]
-name = "neo"
-path = "src/lib.rs"
 
 [dependencies.idpool]
 path = "../crates/idpool"
@@ -25,22 +25,29 @@ version = "0.1.0"
 path = "../crates/galaxy-network"
 version = "0.1.0"
 
+#
+
 [dependencies]
+cocoa-purity.workspace = true
+owo-colors.workspace = true
 envy.workspace = true
-integral-enum.workspace = true
+eyre.workspace = true
+
 serde.workspace = true
 thiserror.workspace = true
-owo-colors.workspace = true
-eyre.workspace = true
+integral-enum.workspace = true
 
 tokio.workspace = true
 
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
-toml = "0.7.3"
+cfg-if.workspace = true
+
 num_cpus.workspace = true
-rustc-hash.workspace = true
+futures = { version = "0.3.28", default-features = false, features = [
+    "std",
+    "async-await",
+] }
 paste = "1.0.12"
-cfg-if = "1.0.0"
-const_format = "0.2.30"
+toml = "0.7.3"
