@@ -4,7 +4,6 @@ use std::{
 };
 
 use galaxy_network::{
-    reader::Read,
     shrinker::interface::Compressor,
     writer::{
         GalaxyWriter,
@@ -13,7 +12,6 @@ use galaxy_network::{
 };
 
 use crate::{
-    config::Config,
     data::{
         commands::master::MasterCommand,
         proxy::Proxy,
