@@ -54,7 +54,7 @@ pub async fn handle_connection(
         reader,
         writer,
         address,
-        config,
+        config: &config,
     };
 
     loop {
@@ -64,15 +64,13 @@ pub async fn handle_connection(
             PacketType::Ping => connection.ping().await,
 
             PacketType::CreateServer => {
-                todo!();
+                connection.create_server(packet.flags).await
             }
 
-            PacketType::Forward => {
-                todo!();
-            }
+            PacketType::Forward => connection.forward(packet.flags).await,
 
             PacketType::Disconnect => {
-                todo!();
+                connection.disconnected(packet.flags).await
             }
 
             PacketType::AuthorizePassword => {

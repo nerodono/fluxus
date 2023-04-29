@@ -83,10 +83,10 @@ fn setup_tracing(config: &LoggingConfig) -> eyre::Result<()> {
 
 fn config_paths() -> [&'static Path; 4] {
     [
-        Path::new("neogrok.toml"),
+        Path::new("fluxus.toml"),
         Path::new("config.toml"),
         Path::new("assets/config.toml"),
-        Path::new("/etc/neogrok.toml"),
+        Path::new("/etc/fluxus.toml"),
     ]
 }
 

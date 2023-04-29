@@ -14,6 +14,7 @@ path = "src/lib.rs"
 [features]
 default = ["tcp", "http", "galaxy"]
 tcp = []
+udp = []
 http = []
 galaxy = []
 
@@ -32,6 +33,8 @@ cocoa-purity.workspace = true
 owo-colors.workspace = true
 envy.workspace = true
 eyre.workspace = true
+
+rustc-hash.workspace = true
 
 serde.workspace = true
 thiserror.workspace = true

@@ -15,3 +15,9 @@ pub mod utils;
 
 /// # Data structures used in the servers
 pub mod data;
+
+/// # Slaves that will be manipulated by the master protocol
+pub mod slaves;
+
+/// # Structures that used to manipulate slave servers
+pub mod servers;

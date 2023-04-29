@@ -1,6 +1,6 @@
 [server]
 listen = "0.0.0.0:6567"
-name = "Neogrok/1.0"
+name = "fluxus/1.0"
 
 buffering.read = 4096
 
