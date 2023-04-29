@@ -1,4 +1,5 @@
 pub mod proxy_getter;
+pub mod recv_future;
 
 pub mod return_id;
 

@@ -13,6 +13,7 @@ use galaxy_network::{
         PingResponseDescriptor,
     },
     raw::{
+        ErrorCode,
         PacketFlags,
         Protocol,
     },
@@ -77,6 +78,14 @@ where
     D: Decompressor,
     C: Compressor,
 {
+    pub async fn server_stopped(&mut self) -> ProcessResult<()> {
+        self.writer
+            .server()
+            .write_error(ErrorCode::ServerStopped)
+            .await
+            .map_err(Into::into)
+    }
+
     pub async fn forward(&mut self, flags: PacketFlags) -> ProcessResult<()> {
         let client_id = self.reader.read_client_id(flags).await?;
         let length = self.reader.read_forward_length(flags).await? as usize;

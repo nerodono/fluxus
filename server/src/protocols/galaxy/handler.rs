@@ -4,10 +4,7 @@ use std::{
 };
 
 use galaxy_network::{
-    raw::{
-        ErrorCode,
-        PacketType,
-    },
+    raw::PacketType,
     reader::GalaxyReader,
     writer::GalaxyWriter,
 };
@@ -19,6 +16,7 @@ use tokio::{
 
 use super::connection::Connection;
 use crate::{
+    communication::dispatcher::CommandDispatcher,
     config::Config,
     data::user::User,
     error::{
@@ -56,9 +54,34 @@ pub async fn handle_connection(
         address,
         config: &config,
     };
+    let dispatcher =
+        CommandDispatcher::new(address, config.compression.threshold);
 
     loop {
-        let packet = connection.reader.read_packet_type().await?;
+        let packet;
+        tokio::select! {
+            command = connection.user.recv_command() => {
+                let Some(command) = command else {
+                    tracing::error!("{} failed to recv master command, disconnecting...", address.bold());
+                    break;
+                };
+                let reset_proxy = {
+                    let proxy = unsafe { connection.user.proxy.as_mut().unwrap_unchecked() };
+                    dispatcher.dispatch(&mut connection.writer, proxy, command).await?
+                };
+
+                if reset_proxy {
+                    connection.user.proxy = None;
+                    connection.server_stopped().await?;
+                }
+
+                continue;
+            }
+
+            pkt = connection.reader.read_packet_type() => {
+                packet = pkt?;
+            }
+        }
 
         let processing_result = match packet.type_ {
             PacketType::Ping => connection.ping().await,

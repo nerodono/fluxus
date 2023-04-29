@@ -10,28 +10,36 @@ use tokio::sync::{
     Mutex,
 };
 
-use super::{
-    commands::master::MasterCommand,
-    proxy::{
-        Pool,
-        Proxy,
-        ProxyData,
-    },
+use super::proxy::{
+    Pool,
+    Proxy,
+    ProxyData,
 };
 use crate::{
     error::{
         NonCriticalError,
         NonCriticalResult,
     },
-    utils::shutdown_token::{
-        shutdown_token,
-        ShutdownToken,
+    utils::{
+        recv_future::RecvFuture,
+        shutdown_token::{
+            shutdown_token,
+            ShutdownToken,
+        },
     },
 };
 
 pub struct User {
     pub proxy: Option<Proxy>,
     pub rights: Rights,
+}
+
+impl User {
+    pub fn recv_command(&mut self) -> RecvFuture<'_> {
+        self.proxy
+            .as_mut()
+            .map_or(RecvFuture::Pending, |p| RecvFuture::Channel(&mut p.rx))
+    }
 }
 
 impl User {

@@ -21,3 +21,6 @@ pub mod slaves;
 
 /// # Structures that used to manipulate slave servers
 pub mod servers;
+
+/// # Dispatcher & specific handlers for the slave servers
+pub mod communication;
