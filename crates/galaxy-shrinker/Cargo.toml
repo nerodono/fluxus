@@ -6,4 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+negative-impl = "0.1.3"
 zstd-sys = { version = "2.0.7", default-features = false, features = ["std", "thin"] }

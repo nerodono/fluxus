@@ -7,6 +7,7 @@ use std::{
     ptr::NonNull,
 };
 
+use negative_impl::negative_impl;
 use zstd_sys::{
     ZSTD_CCtx,
     ZSTD_DCtx,
@@ -38,9 +39,11 @@ pub struct ZStdDctx {
 }
 
 unsafe impl Send for ZStdCctx {}
+#[negative_impl]
 impl !Sync for ZStdCctx {}
 
 unsafe impl Send for ZStdDctx {}
+#[negative_impl]
 impl !Sync for ZStdDctx {}
 
 impl Decompressor for ZStdDctx {
