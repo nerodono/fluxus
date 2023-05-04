@@ -6,11 +6,12 @@ use tokio::net::TcpListener;
 use crate::{
     config::Config,
     protocols::galaxy::handler::handle_connection,
+    utils::feature_gate::FeatureGate,
 };
 
 const NAME: &str = "`Galaxy`";
 
-pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
+pub async fn run(config: Arc<Config>, gate: FeatureGate) -> eyre::Result<()> {
     let listener = TcpListener::bind(&config.server.listen).await?;
     let bound_to = listener.local_addr()?; // for cases where port is 0
 

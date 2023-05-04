@@ -13,6 +13,40 @@ use thiserror::Error;
 
 pub type NonCriticalResult<T> = Result<T, NonCriticalError>;
 pub type ProcessResult<T> = Result<T, ProcessError>;
+pub type HttpResult<T> = Result<T, HttpError>;
+
+#[derive(Debug, Error)]
+pub enum HttpError {
+    #[error("I/O Error: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("Invalid request line format")]
+    InvalidRequestLine,
+
+    #[error("ID pool resource exhausted")]
+    PoolExhausted,
+
+    #[error("Channel for communication was closed")]
+    ChannelClosed,
+
+    #[error("Capacity of buffer was exhausted")]
+    BufferExhausted,
+
+    #[error("No newline")]
+    NoNewline,
+
+    #[error("Got invalid chunk size")]
+    InvalidChunkSize,
+
+    #[error("Invalid content length passed")]
+    InvalidContentLength,
+
+    #[error("Missing colon in header")]
+    MissingColon,
+
+    #[error("Client disconnected during read")]
+    Disconnected,
+}
 
 #[integral_enum]
 #[derive(Error)]
@@ -26,7 +60,7 @@ pub enum ProcessError {
     #[error("Read error: {0}")]
     Read(#[from] ReadError),
 
-    #[error("I/O Error: {}", 1)]
+    #[error("I/O Error: {0}")]
     Io(#[from] io::Error),
 
     #[error("Non-critical error: {0}")]
@@ -68,4 +102,10 @@ pub enum NonCriticalError {
 
     #[error("No server was created")]
     NoServerWasCreated,
+}
+
+impl From<PermitSendError> for HttpError {
+    fn from(_: PermitSendError) -> Self {
+        Self::ChannelClosed
+    }
 }

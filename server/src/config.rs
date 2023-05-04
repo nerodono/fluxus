@@ -37,8 +37,7 @@ config! {
         },
     }
 
-    // TODO: Discovery by domain
-    int HttpDiscoveryMethod<u8> { Path }
+    int HttpDiscoveryMethod<u8> { Host }
 
     int LogLevel<u8> { Disable, Info, Error, Debug }
 

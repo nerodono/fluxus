@@ -9,7 +9,7 @@ level = "info"
 
 [http]
 listen = "0.0.0.0:8080"
-discovery_method = "path"
+discovery_method = "host"
 
 [authorization.password]
 password = "Nero :3"

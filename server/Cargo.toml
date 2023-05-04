@@ -26,6 +26,16 @@ version = "0.1.0"
 path = "../crates/galaxy-network"
 version = "0.1.0"
 
+[target.'cfg(target_arch = "x86_64")'.dependencies.memchr]
+version = "2.5.0"
+default-features = false
+features = ["std"]
+
+[target.'cfg(not(target_arch = "x86_64"))'.dependencies.memchr]
+version = "2.5.0"
+default-features = false
+features = ["std", "libc"]
+
 #
 
 [dependencies]
@@ -54,3 +64,5 @@ futures = { version = "0.3.28", default-features = false, features = [
 ] }
 paste = "1.0.12"
 toml = "0.7.3"
+ahash = "0.8.3"
+const_format = "0.2.30"

@@ -43,6 +43,11 @@ impl CommandDispatcher {
         C: Compressor,
     {
         match command {
+            #[cfg(feature = "http")]
+            MasterCommand::Http(http_cmd) => {
+                todo!();
+            }
+
             #[cfg(feature = "tcp")]
             MasterCommand::Tcp(tcp_cmd) => {
                 let server = unsafe { proxy.data.unwrap_tcp_unchecked() };

@@ -1,3 +1,13 @@
+macro_rules! break_ {
+    ($r:expr) => {
+        match $r {
+            Ok(v) => v,
+            Err(..) => {
+                break;
+            }
+        }
+    };
+}
 macro_rules! permit_issuers {
     ($(
         $permit_name:ident
@@ -36,24 +46,47 @@ macro_rules! unchecked_unwraps {
 }
 
 macro_rules! chan_permits {
-    ($enum:ident::[
-        $($variant:ident : $command_ty:ty),*
+    (@new $enum:ident unsafe) => {
+        /// # Safety
+        ///
+        /// Unsafe due to ability of producing wrong permits
+        pub const unsafe fn new(chan: tokio::sync::mpsc::UnboundedSender<$enum>) -> Self {
+            Self { chan }
+        }
+    };
+
+    (@new $enum:ident safe) => {
+        pub const fn new(chan: tokio::sync::mpsc::UnboundedSender<$enum>) -> Self {
+            Self { chan }
+        }
+    };
+
+    (@struct $variant:ident $enum:ident) => {paste::paste!{
+        #[derive(Clone)]
+        pub struct [<$variant:camel Permit>] {
+            chan: tokio::sync::mpsc::UnboundedSender<$enum>,
+        }
+    }};
+
+    (@struct $variant:ident $enum:ident $explicit_name:ident) => {
+        #[derive(Clone)]
+        pub struct $explicit_name {
+            chan: tokio::sync::mpsc::UnboundedSender<$enum>
+        }
+    };
+
+    ($keyword:ident, $enum:ident::[
+        $($variant:ident $($explicit_name:ident)? : $command_ty:ty),*
     ]) => {paste::paste! {
         $(
             cfg_if::cfg_if! {
                 if #[cfg(feature = "" [<$variant:lower>] "")] {
-                    #[derive(Clone)]
-                    pub struct [<$variant Permit>] {
-                        chan: tokio::sync::mpsc::UnboundedSender<$enum>,
-                    }
+                    $crate::decl::chan_permits!(
+                        @struct $variant $enum $($explicit_name)?
+                    );
 
                     impl [<$variant Permit>] {
-                        /// # Safety
-                        ///
-                        /// Unsafe due to ability of producing wrong permits
-                        pub const unsafe fn new(chan: tokio::sync::mpsc::UnboundedSender<$enum>) -> Self {
-                            Self { chan }
-                        }
+                        $crate::decl::chan_permits!(@new $enum $keyword);
 
                         pub fn send(&self, command: $command_ty) -> Result<(), crate::error::PermitSendError> {
                             self.chan.send($enum::$variant(command)).map_err(
@@ -137,6 +170,7 @@ macro_rules! config {
     };
 }
 
+pub(crate) use break_;
 pub(crate) use chan_permits;
 pub(crate) use config;
 pub(crate) use permit_issuers;

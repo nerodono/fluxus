@@ -24,3 +24,6 @@ pub mod servers;
 
 /// # Dispatcher & specific handlers for the slave servers
 pub mod communication;
+
+/// # Functionality related to the HTTP server
+pub mod http;

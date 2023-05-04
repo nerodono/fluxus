@@ -8,13 +8,23 @@ cfg_if! {
     }
 }
 
+cfg_if! {
+    if #[cfg(feature = "http")] {
+        use super::http::IdentifiedHttpMasterCommand;
+    }
+}
+
 pub enum MasterCommand {
     #[cfg(feature = "tcp")]
     Tcp(TcpMasterCommand),
+
+    #[cfg(feature = "http")]
+    Http(IdentifiedHttpMasterCommand),
 }
 
 chan_permits! {
-    MasterCommand::[
-        Tcp: TcpMasterCommand
+    unsafe, MasterCommand::[
+        Tcp: TcpMasterCommand,
+        Http: IdentifiedHttpMasterCommand
     ]
 }
