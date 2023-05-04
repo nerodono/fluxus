@@ -26,4 +26,5 @@ pub mod servers;
 pub mod communication;
 
 /// # Functionality related to the HTTP server
+#[cfg(feature = "http")]
 pub mod http;

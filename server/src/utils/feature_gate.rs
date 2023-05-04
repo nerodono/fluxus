@@ -33,6 +33,7 @@ impl Deref for FeatureGate {
     }
 }
 
+#[allow(clippy::new_without_default)]
 impl FeatureGate {
     pub fn new(#[cfg(feature = "http")] http: HttpChannel) -> Self {
         Self {

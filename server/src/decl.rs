@@ -1,3 +1,4 @@
+#[allow(unused_macros)]
 macro_rules! break_ {
     ($r:expr) => {
         match $r {
@@ -8,6 +9,7 @@ macro_rules! break_ {
         }
     };
 }
+
 macro_rules! permit_issuers {
     ($(
         $permit_name:ident
@@ -170,6 +172,7 @@ macro_rules! config {
     };
 }
 
+#[allow(unused_imports)]
 pub(crate) use break_;
 pub(crate) use chan_permits;
 pub(crate) use config;
