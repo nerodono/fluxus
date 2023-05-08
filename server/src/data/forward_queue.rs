@@ -8,11 +8,12 @@ pub struct ForwardQueue {
 
 impl ForwardQueue {
     #[track_caller]
+    #[allow(clippy::range_plus_one)]
     pub fn range(&self) -> Range<usize> {
         let request_line = self.request_line.clone().unwrap();
         let start = request_line.start;
 
-        start..start + self.headers_len
+        start..(request_line.end + self.headers_len + 1)
     }
 
     pub fn reset(&mut self) {

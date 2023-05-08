@@ -190,9 +190,7 @@ where
 
                     if buffered != 0 {
                         dest.send(HttpMasterCommand::BodyChunk {
-                            buf: Vec::from(
-                                &self.buffer[cursor..cursor + buffered],
-                            ),
+                            buf: Vec::from(&self.buffer[cursor..self.cursor]),
                         })?;
                     }
 
@@ -312,15 +310,14 @@ where
                                 break 'check;
                             };
                             let (tx, rx) = mpsc::unbounded_channel();
+                            let taken = Self::take_range(
+                                &self.buffer,
+                                self.forward_queue.range(),
+                            )
+                            .to_owned();
+
                             endpoint
-                                .assign_id(
-                                    tx,
-                                    Self::take_range(
-                                        &self.buffer,
-                                        self.forward_queue.range(),
-                                    )
-                                    .to_owned(),
-                                )
+                                .assign_id(tx, taken)
                                 .await
                                 .map(|(id, permit)| (id, permit, rx))?
                         };

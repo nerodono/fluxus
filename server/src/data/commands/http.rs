@@ -29,6 +29,7 @@ pub struct IdentifiedHttpMasterCommand {
     pub command: HttpMasterCommand,
 }
 
+#[derive(Debug)]
 pub enum HttpSlaveCommand {
     Forward { buf: Vec<u8> },
     Disconnect,
