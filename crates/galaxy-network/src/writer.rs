@@ -12,6 +12,7 @@ use tokio::io::AsyncWriteExt;
 
 use crate::{
     descriptors::{
+        CreateServerRequestDescriptor,
         CreateServerResponseDescriptor,
         PingResponseDescriptor,
     },
@@ -20,7 +21,6 @@ use crate::{
         Packet,
         PacketFlags,
         PacketType,
-        Protocol,
         Rights,
     },
     utils::encode_forward_header,
@@ -41,26 +41,42 @@ pub struct GalaxyServerWriter<'a, W, C>(&'a mut GalaxyWriter<W, C>);
 pub struct GalaxyClientWriter<'a, W, C>(&'a mut GalaxyWriter<W, C>);
 
 impl<'a, W: Write, C> GalaxyClientWriter<'a, W, C> {
-    pub async fn write_server_request(
+    pub async fn write_server_request<'endpoint>(
         &mut self,
-        protocol: Protocol,
-        port: Option<NonZeroU16>,
+        descriptor: CreateServerRequestDescriptor<'endpoint>,
     ) -> io::Result<()> {
-        let flags = match protocol {
-            Protocol::Http => PacketFlags::SHORT_CLIENT,
-            Protocol::Tcp => PacketFlags::COMPRESSED,
-            Protocol::Udp => PacketFlags::SHORT,
-        };
-        let port = port.map_or(0, NonZeroU16::get);
+        match descriptor {
+            CreateServerRequestDescriptor::Http { endpoint } => {
+                self.0
+                    .write_two_bufs(
+                        &[
+                            Packet::new(
+                                PacketType::CreateServer,
+                                PacketFlags::SHORT_CLIENT,
+                            )
+                            .encode(),
+                            endpoint.len() as u8,
+                        ],
+                        endpoint,
+                    )
+                    .await
+            }
 
-        // FIXME: http settings?
-        self.raw_mut()
-            .write_all(&[
-                Packet::new(PacketType::CreateServer, flags).encode(),
-                (port & 0xff) as u8,
-                (port >> 8) as u8,
-            ])
-            .await
+            CreateServerRequestDescriptor::Tcp { port } => {
+                let port = port.map_or(0, NonZeroU16::get);
+                self.raw_mut()
+                    .write_all(&[
+                        Packet::new(
+                            PacketType::CreateServer,
+                            PacketFlags::COMPRESSED,
+                        )
+                        .encode(),
+                        (port & 0xff) as u8,
+                        (port >> 8) as u8,
+                    ])
+                    .await
+            }
+        }
     }
 
     pub async fn write_password_auth(
@@ -127,7 +143,7 @@ impl<W: Write, C> GalaxyServerWriter<'_, W, C> {
                                 Packet::id(PacketType::CreateServer).encode(),
                                 endpoint.len() as u8,
                             ],
-                            endpoint.as_bytes(),
+                            endpoint,
                         )
                         .await
                 } else {

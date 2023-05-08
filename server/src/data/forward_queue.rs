@@ -7,6 +7,14 @@ pub struct ForwardQueue {
 }
 
 impl ForwardQueue {
+    #[track_caller]
+    pub fn range(&self) -> Range<usize> {
+        let request_line = self.request_line.clone().unwrap();
+        let start = request_line.start;
+
+        start..start + self.headers_len
+    }
+
     pub fn reset(&mut self) {
         *self = Self::new();
     }

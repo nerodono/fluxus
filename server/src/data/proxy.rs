@@ -25,6 +25,13 @@ cfg_if! {
     }
 }
 
+cfg_if! {
+    if #[cfg(feature = "http")] {
+        use crate::servers::http::HttpServer;
+        use super::commands::master::HttpPermit;
+    }
+}
+
 pub struct Proxy {
     pub pool: Pool,
     pub tx: mpsc::UnboundedSender<MasterCommand>,
@@ -37,13 +44,17 @@ pub struct Proxy {
 pub enum ProxyData {
     #[cfg(feature = "tcp")]
     Tcp(TcpServer),
+
+    #[cfg(feature = "http")]
+    Http(HttpServer),
 }
 
 impl Proxy {
-    permit_issuers!(tcp);
+    permit_issuers!(tcp, http);
 }
 
 unchecked_unwraps! {
     ProxyData =>
-        Tcp: TcpServer
+        Tcp: TcpServer,
+        Http: HttpServer
 }

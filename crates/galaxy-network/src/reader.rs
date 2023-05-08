@@ -1,10 +1,15 @@
 use std::{
+    borrow::Cow,
     future::{
         poll_fn,
         Future,
     },
     io,
-    num::NonZeroUsize,
+    num::{
+        NonZeroU16,
+        NonZeroU8,
+        NonZeroUsize,
+    },
     pin::Pin,
 };
 
@@ -15,6 +20,10 @@ use tokio::io::{
 };
 
 use crate::{
+    descriptors::{
+        CompressionDescriptor,
+        PingResponseDescriptor,
+    },
     error::ReadError,
     raw::{
         CompressionAlgorithm,
@@ -35,6 +44,8 @@ pub struct GalaxyReader<R, D> {
     raw: R,
     decompressor: D,
 }
+
+pub struct GalaxyClientReader<'a, R, D>(&'a mut GalaxyReader<R, D>);
 
 impl<R: Read, D: Decompressor> GalaxyReader<R, D> {
     pub async fn try_read_forward_buffer(
@@ -70,6 +81,35 @@ impl<R: Read, D: Decompressor> GalaxyReader<R, D> {
         self.decompressor
             .try_decompress(&compressed, size.get())
             .ok_or(ReadError::FailedToDecompress)
+    }
+}
+
+impl<'a, R: Read, D> GalaxyClientReader<'a, R, D> {
+    pub async fn read_ping(
+        &mut self,
+    ) -> ReadResult<PingResponseDescriptor<'static>> {
+        let algorithm = self.0.read_compression_algorithm().await?;
+        let level = self
+            .0
+            .read_u8()
+            .await
+            .ok()
+            .and_then(NonZeroU8::new)
+            .ok_or(ReadError::InvalidCompressionLevel(0))?;
+        let buffer_size = self
+            .0
+            .read_u16()
+            .await
+            .ok()
+            .and_then(NonZeroU16::new)
+            .ok_or(ReadError::InvalidReadBuffer(0))?;
+        let server_name = self.0.read_string_prefixed().await?;
+
+        Ok(PingResponseDescriptor {
+            compression: CompressionDescriptor { algorithm, level },
+            server_name: Cow::Owned(server_name),
+            buffer_read: buffer_size.into(),
+        })
     }
 }
 
@@ -226,6 +266,10 @@ impl<R: Read, D> GalaxyReader<R, D> {
 }
 
 impl<R, D> GalaxyReader<R, D> {
+    pub fn client(&mut self) -> GalaxyClientReader<'_, R, D> {
+        GalaxyClientReader(self)
+    }
+
     #[allow(clippy::missing_const_for_fn)]
     pub fn into_inner(self) -> (R, D) {
         (self.raw, self.decompressor)

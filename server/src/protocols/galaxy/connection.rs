@@ -16,6 +16,7 @@ use galaxy_network::{
         ErrorCode,
         PacketFlags,
         Protocol,
+        Rights,
     },
     reader::{
         GalaxyReader,
@@ -50,6 +51,7 @@ use crate::{
     },
     slaves,
     utils::{
+        feature_gate::FeatureGate,
         proxy_getter::require_proxy,
         shortcuts::assert_bound,
     },
@@ -63,12 +65,23 @@ cfg_if! {
     }
 }
 
+cfg_if! {
+    if #[cfg(feature = "http")] {
+        use crate::servers::http::HttpServer;
+        use crate::data::commands::http::{
+            HttpServerRequest,
+            HttpSlaveCommand
+        };
+    }
+}
+
 pub struct Connection<'a, R, D, W, C> {
     pub reader: GalaxyReader<R, D>,
     pub writer: GalaxyWriter<W, C>,
     pub address: SocketAddr,
     pub user: User,
     pub config: &'a Arc<Config>,
+    pub gate: FeatureGate,
 }
 
 impl<'a, R, D, W, C> Connection<'a, R, D, W, C>
@@ -103,9 +116,17 @@ where
             .await?;
 
         match &mut proxy.data {
+            #[cfg(feature = "http")]
+            ProxyData::Http(http) => {
+                http.channels.send_command(
+                    client_id,
+                    HttpSlaveCommand::Forward { buf: buffer },
+                )?;
+            }
+
             #[cfg(feature = "tcp")]
             ProxyData::Tcp(tcp) => {
-                tcp.send_command(
+                tcp.clients.send_command(
                     client_id,
                     TcpSlaveCommand::Forward { buffer },
                 )?;
@@ -122,20 +143,34 @@ where
         let proxy = require_proxy(&mut self.user.proxy)?;
 
         match &mut proxy.data {
+            // Can we get rid of this duplication?
+            // Possibly yes...
+            #[cfg(feature = "http")]
+            ProxyData::Http(http) => {
+                let chan = http
+                    .channels
+                    .remove(client_id)?
+                    .return_id(&proxy.pool)
+                    .await;
+                _ = chan.send(HttpSlaveCommand::Disconnect);
+            }
+
             #[cfg(feature = "tcp")]
             ProxyData::Tcp(tcp) => {
                 let chan = tcp
-                    .remove_client(client_id)?
+                    .clients
+                    .remove(client_id)?
                     .return_id(&proxy.pool)
                     .await;
                 _ = chan.send(TcpSlaveCommand::Disconnect);
-
-                tracing::info!(
-                    "ID{client_id} was disconnected from the {}'s server",
-                    self.address.bold()
-                );
             }
         }
+
+        tracing::info!(
+            "ID{client_id} was disconnected from the {}'s server",
+            self.address.bold()
+        );
+
         Ok(())
     }
 
@@ -203,7 +238,39 @@ where
 
             #[cfg(feature = "http")]
             Protocol::Http => {
-                todo!();
+                let endpoint = self.reader.read_bytes_prefixed().await?;
+                let http_chan = self.gate.http()?;
+                if !endpoint.is_empty()
+                    && self
+                        .user
+                        .rights
+                        .contains(Rights::CAN_SELECT_DOMAIN)
+                {
+                    return Err(
+                        NonCriticalError::NoAccessToSelectEndpoint.into()
+                    );
+                }
+
+                let server =
+                    HttpServer::new(endpoint.clone(), http_chan.clone());
+
+                // Shutdown tokens can't be monitored reliably, so we just
+                // forgot about them. Unbind will be sent by the
+                // [`HttpServer`]
+                let (permit, _, pool) = self.user.replace_proxy(
+                    ProxyData::Http(server),
+                    Proxy::issue_http_permit,
+                );
+                http_chan.send(HttpServerRequest::Bind {
+                    endpoint: Some(endpoint),
+                    permit,
+                    pool,
+                })?;
+
+                // Response will be sent depending on the server response,
+                // so client will be notified
+
+                Ok(())
             }
 
             #[cfg(feature = "udp")]

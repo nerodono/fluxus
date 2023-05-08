@@ -8,6 +8,7 @@ use crate::{
     },
 };
 
+#[derive(Clone)]
 pub struct HttpChannel {
     tx: mpsc::UnboundedSender<HttpServerRequest>,
 }

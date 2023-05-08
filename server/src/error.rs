@@ -100,6 +100,9 @@ pub enum NonCriticalError {
         protocol: Protocol,
     },
 
+    #[error("The client has no access to select endpoint")]
+    NoAccessToSelectEndpoint = AccessDenied,
+
     #[error("No server was created")]
     NoServerWasCreated,
 }

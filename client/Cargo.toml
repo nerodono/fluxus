@@ -3,6 +3,35 @@ name = "client"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["http", "tcp"]
+http = []
+tcp = []
+
+[[bin]]
+name = "fluxus"
+path = "bin/main.rs"
+
+[lib]
+name = "fluxus"
+path = "src/lib.rs"
+
+[dependencies.galaxy-network]
+path = "../crates/galaxy-network"
+version = "0.1.0"
 
 [dependencies]
+clap = { version = "4.2.7", features = ["derive"] }
+
+rustc-hash.workspace = true
+num_cpus.workspace = true
+owo-colors.workspace = true
+
+tracing-subscriber.workspace = true
+tracing.workspace = true
+
+eyre.workspace = true
+
+tokio.workspace = true
+cfg-if.workspace = true
+humansize = "2.1.3"

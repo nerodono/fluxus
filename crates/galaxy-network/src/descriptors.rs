@@ -10,8 +10,14 @@ use std::{
 use crate::raw::CompressionAlgorithm;
 
 #[derive(Debug)]
+pub enum CreateServerRequestDescriptor<'a> {
+    Http { endpoint: &'a [u8] },
+    Tcp { port: Option<NonZeroU16> },
+}
+
+#[derive(Debug)]
 pub enum CreateServerResponseDescriptor {
-    Http { endpoint: Option<String> },
+    Http { endpoint: Option<Vec<u8>> },
     Tcp { port: Option<NonZeroU16> },
 }
 
@@ -38,7 +44,7 @@ impl CreateServerResponseDescriptor {
     }
 
     #[track_caller]
-    pub fn unwrap_http_endpoint(self) -> Option<String> {
+    pub fn unwrap_http_endpoint(self) -> Option<Vec<u8>> {
         match self {
             Self::Http { endpoint } => endpoint,
             Self::Tcp { .. } => wrong_variant(),
@@ -47,6 +53,7 @@ impl CreateServerResponseDescriptor {
 }
 
 #[cold]
+#[track_caller]
 fn wrong_variant() -> ! {
-    panic!("Wrong variant picked")
+    panic!("Wrong variant picked: end game for you :)")
 }

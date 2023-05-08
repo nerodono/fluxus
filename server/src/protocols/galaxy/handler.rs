@@ -23,13 +23,17 @@ use crate::{
         ProcessError,
         ProcessResult,
     },
-    utils,
+    utils::{
+        self,
+        feature_gate::FeatureGate,
+    },
 };
 
 pub async fn handle_connection(
     mut stream: TcpStream,
     address: SocketAddr,
     config: Arc<Config>,
+    gate: FeatureGate,
 ) -> ProcessResult<()> {
     let (raw_reader, raw_writer) = stream.split();
     let (compressor, decompressor) =
@@ -53,6 +57,7 @@ pub async fn handle_connection(
         writer,
         address,
         config: &config,
+        gate,
     };
     let dispatcher =
         CommandDispatcher::new(address, config.compression.threshold);

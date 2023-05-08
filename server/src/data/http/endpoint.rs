@@ -1,9 +1,13 @@
 use idpool::interface::IdPool;
+use tokio::sync::mpsc;
 
 use crate::{
     data::{
         commands::{
-            http::HttpMasterCommand,
+            http::{
+                HttpMasterCommand,
+                HttpSlaveCommand,
+            },
             master::HttpPermit,
         },
         proxy::Pool,
@@ -20,15 +24,24 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
-    pub async fn assign_id(&self) -> HttpResult<(u16, HttpPermit)> {
+    pub async fn assign_id(
+        &self,
+        chan: mpsc::UnboundedSender<HttpSlaveCommand>,
+        immediate_forward: Vec<u8>,
+    ) -> HttpResult<(u16, HttpPermit)> {
         let id = self
             .pool
             .lock()
             .await
             .request()
             .ok_or(HttpError::PoolExhausted)?;
-        self.permit
-            .send(HttpMasterCommand::Connected.identified(id))?;
+        self.permit.send(
+            HttpMasterCommand::Connected {
+                chan,
+                immediate_forward,
+            }
+            .identified(id),
+        )?;
         Ok((id, self.permit.clone()))
     }
 

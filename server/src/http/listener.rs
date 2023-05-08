@@ -86,8 +86,6 @@ async fn listen(
                                 ));
                             }
                         }
-
-                        todo!();
                     }
 
                     HttpServerRequest::Unbind { endpoint } => {

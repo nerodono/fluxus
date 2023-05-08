@@ -45,7 +45,15 @@ impl CommandDispatcher {
         match command {
             #[cfg(feature = "http")]
             MasterCommand::Http(http_cmd) => {
-                todo!();
+                let server = unsafe { proxy.data.unwrap_http_unchecked() };
+                super::http::handle_command(
+                    &proxy.pool,
+                    writer,
+                    server,
+                    self.threshold,
+                    http_cmd,
+                )
+                .await
             }
 
             #[cfg(feature = "tcp")]

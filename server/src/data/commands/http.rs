@@ -1,15 +1,26 @@
+use tokio::sync::mpsc;
+
 use super::master::HttpPermit;
 use crate::data::proxy::Pool;
 
 pub enum HttpMasterCommand {
-    Connected,
-    Header { buf: Vec<u8> },
-    BodyChunk { buf: Vec<u8> },
+    Connected {
+        chan: mpsc::UnboundedSender<HttpSlaveCommand>,
+        immediate_forward: Vec<u8>,
+    },
+    Header {
+        buf: Vec<u8>,
+    },
+    BodyChunk {
+        buf: Vec<u8>,
+    },
 
     Disconnected,
 
     // FIXME: Unidentified
-    Bound { on: Option<Vec<u8>> },
+    Bound {
+        on: Option<Vec<u8>>,
+    },
     FailedToBind,
 }
 
@@ -18,7 +29,10 @@ pub struct IdentifiedHttpMasterCommand {
     pub command: HttpMasterCommand,
 }
 
-pub enum HttpSlaveCommand {}
+pub enum HttpSlaveCommand {
+    Forward { buf: Vec<u8> },
+    Disconnect,
+}
 
 pub enum HttpServerRequest {
     Bind {

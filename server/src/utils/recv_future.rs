@@ -11,13 +11,13 @@ use tokio::sync::mpsc;
 
 use crate::data::commands::master::MasterCommand;
 
-pub enum RecvFuture<'a> {
-    Channel(&'a mut mpsc::UnboundedReceiver<MasterCommand>),
+pub enum RecvFuture<'a, T = MasterCommand> {
+    Channel(&'a mut mpsc::UnboundedReceiver<T>),
     Pending,
 }
 
-impl<'a> Future for RecvFuture<'a> {
-    type Output = Option<MasterCommand>;
+impl<'a, T> Future for RecvFuture<'a, T> {
+    type Output = Option<T>;
 
     fn poll(
         self: Pin<&mut Self>,

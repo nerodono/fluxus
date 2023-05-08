@@ -46,11 +46,11 @@ where
 
         TcpMasterCommand::Disconnected { id } => {
             writer.write_disconnected(id).await?;
-            server.remove_client(id)?.return_id(pool).await;
+            server.clients.remove(id)?.return_id(pool).await;
         }
 
         TcpMasterCommand::Connected { id, chan } => {
-            server.insert_client(id, chan);
+            server.clients.insert(id, chan);
             writer.server().write_connected(id).await?;
         }
     }

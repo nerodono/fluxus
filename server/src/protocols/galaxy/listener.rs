@@ -28,8 +28,11 @@ pub async fn run(config: Arc<Config>, gate: FeatureGate) -> eyre::Result<()> {
         );
 
         let config = Arc::clone(&config);
+        let gate = gate.clone();
         tokio::spawn(async move {
-            if let Err(e) = handle_connection(stream, address, config).await {
+            if let Err(e) =
+                handle_connection(stream, address, config, gate).await
+            {
                 tracing::info!(
                     "{} disconnected from the {} server: {}",
                     "`Galaxy`".bold().green(),

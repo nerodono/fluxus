@@ -14,7 +14,10 @@ use galaxy_network::{
     writer::Write,
 };
 use memchr::memchr;
-use tokio::io::ReadBuf;
+use tokio::{
+    io::ReadBuf,
+    sync::mpsc,
+};
 
 use super::{
     destination::Destination,
@@ -27,7 +30,10 @@ use super::{
 use crate::{
     config::HttpDiscoveryMethod,
     data::{
-        commands::http::HttpMasterCommand,
+        commands::http::{
+            HttpMasterCommand,
+            HttpSlaveCommand,
+        },
         forward_queue::ForwardQueue,
         http::collection::EndpointCollection,
     },
@@ -60,9 +66,12 @@ pub struct Connection<R, W> {
     cursor: usize,
     state: State,
     body: Body,
-    pub dest: Option<Destination>,
 
     collection: Arc<EndpointCollection>,
+
+    // keeping this in Connection structure is very important
+    // since [`Connection::read_line`] method can be interrupted
+    continuation: usize,
 }
 
 impl<R, W> Connection<R, W>
@@ -70,7 +79,10 @@ where
     R: Read,
     W: Write,
 {
-    async fn read_chunks(&mut self) -> HttpResult<()> {
+    async fn read_chunks(
+        &mut self,
+        dest: &mut Option<Destination>,
+    ) -> HttpResult<()> {
         let start_cursor = self.cursor;
         let able_to_overwrite = self.buffer.capacity() - start_cursor - 1;
         // < CRLF + single character
@@ -88,8 +100,7 @@ where
                     if overwritten {
                         // if we previously overwritten
                         // the data - this is the signal that chunk
-                        // size will not fit
-                        // in the allocated buffer.
+                        // size will not fit in the allocated buffer.
                         return Err(HttpError::BufferExhausted);
                     }
                     let current_cursor = self.cursor;
@@ -112,7 +123,8 @@ where
                 Err(e) => return Err(e),
             };
             overwritten = false;
-            let line = self.take_range(range);
+            let range_start = range.start;
+            let line = Self::take_range(&self.buffer, range);
 
             let chunk_size =
                 parse_hex(line.strip_suffix(b"\r").unwrap_or(line))
@@ -120,14 +132,15 @@ where
             let (buffered, unbuffered) =
                 self.calc_buffered((chunk_size + 2) as usize);
 
-            if let Some(ref dst) = self.dest {
-                let (buffered_crlf, recv_crlf) = match unbuffered {
-                    n @ 0..=2 => (2 - n, n),
-                    _ => (0, 2),
-                };
+            if let Some(ref dst) = dest {
+                // CRLF calculations, do we need them?
+                // let (buffered_crlf, recv_crlf) = match unbuffered {
+                //     n @ 0..=2 => (2 - n, n),
+                //     _ => (0, 2),
+                // };
                 if buffered != 0 {
-                    let slice = &self.buffer
-                        [self.cursor..self.cursor + buffered - buffered_crlf];
+                    let slice =
+                        &self.buffer[range_start..self.cursor + buffered];
                     dst.send(HttpMasterCommand::BodyChunk {
                         buf: slice.into(),
                     })?;
@@ -138,7 +151,7 @@ where
                     dst,
                     &mut self.reader,
                     chunk_size as usize,
-                    recv_crlf,
+                    0,
                 )
                 .await?;
             } else {
@@ -156,7 +169,10 @@ where
         Ok(())
     }
 
-    async fn handle_body(&mut self) -> HttpResult<()> {
+    async fn handle_body(
+        &mut self,
+        dest: &mut Option<Destination>,
+    ) -> HttpResult<()> {
         'handling: {
             match self.body {
                 Body::ContentLength(length) => {
@@ -164,7 +180,7 @@ where
                     let (buffered, unbuffered) = self.calc_buffered(length);
                     self.cursor += buffered;
 
-                    let Some(ref dest) = self.dest else {
+                    let Some(ref dest) = dest else {
                         self.skip_data_of_size(unbuffered).await?;
                         break 'handling;
                     };
@@ -190,12 +206,14 @@ where
                 }
 
                 Body::Chunked => {
-                    self.read_chunks().await?;
+                    self.read_chunks(dest).await?;
                 }
             }
         }
 
-        if self.dest.is_none() {
+        if let Some(ref mut dest) = dest {
+            dest.discovered = false;
+        } else {
             self.writer
                 .write_all(NOT_FOUND.as_bytes())
                 .await?;
@@ -241,43 +259,74 @@ where
         Ok(())
     }
 
-    async fn handle_header(&mut self, range: Range<usize>) -> HttpResult<()> {
-        let line = self.take_range(range);
+    async fn handle_header(
+        &mut self,
+        dest: &mut Option<Destination>,
+        range: Range<usize>,
+    ) -> HttpResult<()> {
+        let line = Self::take_range(&self.buffer, range);
         if line == b"\r" {
+            if let Some(ref dest) = dest {
+                dest.send(HttpMasterCommand::Header {
+                    buf: Vec::from(b"\r\n" as &[u8]),
+                })?;
+            }
             // Here is the body started
-            return self.handle_body().await;
+            return self.handle_body(dest).await;
         }
 
         let Some((key, value)) =
             split_key_value(line) else {
                 return Err(HttpError::MissingColon);
             };
+        self.forward_queue.append_header(line.len() + 1);
         let value = value.strip_suffix(b"\r").unwrap_or(value);
+        let mut forward_line = true;
 
         'check: {
             if case_insensitive_eq_left(key, b"HOST") {
                 let host = strip_left_space(value);
                 if host.is_empty() {
                     // Invalid host, so we just think that host is not present
-                    self.dest = None;
+                    *dest = None;
                     break 'check;
                 }
 
                 match self.discovery {
                     HttpDiscoveryMethod::Host => {
-                        let (id, permit) = {
+                        if let Some(ref mut dest) = dest {
+                            if dest.same_endpoint(host) {
+                                dest.discovered = true;
+                                forward_line = false;
+                                break 'check;
+                            }
+                        }
+
+                        let (id, permit, rx) = {
                             let endpoints = self.collection.raw_endpoints();
                             let read_permit = endpoints.read().await;
                             let Some(endpoint) = read_permit.get(host) else {
                                 break 'check;
                             };
-                            endpoint.assign_id().await?
+                            let (tx, rx) = mpsc::unbounded_channel();
+                            endpoint
+                                .assign_id(
+                                    tx,
+                                    Self::take_range(
+                                        &self.buffer,
+                                        self.forward_queue.range(),
+                                    )
+                                    .to_owned(),
+                                )
+                                .await
+                                .map(|(id, permit)| (id, permit, rx))?
                         };
-                        self.dest = Some(Destination {
-                            id,
-                            dest_id: host.into(),
-                            permit,
-                        });
+
+                        let new_dest =
+                            Destination::new(id, host.to_owned(), permit, rx);
+
+                        forward_line = false;
+                        *dest = Some(new_dest);
                     }
                 }
             } else if case_insensitive_eq_left(key, b"CONTENT-LENGTH") {
@@ -293,12 +342,45 @@ where
             }
         }
 
+        if let Some(ref dest) = dest {
+            if dest.discovered && forward_line {
+                let mut intermediate =
+                    Vec::with_capacity(line.len() + 1 /* +newline */);
+                intermediate.extend(line.iter().copied());
+                intermediate.push(b'\n');
+
+                dest.send(HttpMasterCommand::Header { buf: intermediate })?;
+            }
+        }
+
         Ok(())
     }
 
     fn handle_request_line(&mut self, range: Range<usize>) {
         self.forward_queue.fill_request_line(range);
         self.state = State::Header;
+    }
+
+    async fn handle_command(
+        &mut self,
+        command: HttpSlaveCommand,
+        dest: &mut Destination,
+    ) -> HttpResult<bool> {
+        match command {
+            HttpSlaveCommand::Disconnect => {
+                // we don't want to notify the server about disconnection
+                // Since server sent us disconnection request.
+                dest.dont_notify();
+
+                return Ok(true);
+            }
+
+            HttpSlaveCommand::Forward { buf } => {
+                self.writer.write_all(&buf).await?;
+            }
+        }
+
+        Ok(false)
     }
 }
 
@@ -308,12 +390,32 @@ where
     W: Write,
 {
     pub async fn run(&mut self) -> HttpResult<()> {
+        let mut destination: Option<Destination> = None;
         loop {
-            let range = self.read_line().await?;
+            let range;
+            tokio::select! {
+                // very sussy part since self.read_line does additional work under the hood.
+                // Dropping this future would be cancel-safe, see comment in [`Connection::read_line`]
+                // implementation
+                range_result = self.read_line() => {
+                    range = range_result?;
+                }
+
+                command = Destination::recv_command(destination.as_mut()) => {
+                    self.handle_command(
+                        command.ok_or(HttpError::ChannelClosed)?,
+                        unsafe { destination.as_mut().unwrap_unchecked() }
+                    ).await?;
+                    continue;
+                }
+            }
+
             match self.state {
                 #[allow(clippy::unit_arg)]
                 State::RequestLine => Ok(self.handle_request_line(range)),
-                State::Header => self.handle_header(range).await,
+                State::Header => {
+                    self.handle_header(&mut destination, range).await
+                }
             }?;
         }
     }
@@ -338,8 +440,9 @@ where
 
             forward_queue: ForwardQueue::new(),
             body: Body::ContentLength(0),
-            dest: None,
             collection,
+
+            continuation: 0,
         }
     }
 }
@@ -350,18 +453,26 @@ where
     W: Write,
 {
     async fn read_line(&mut self) -> HttpResult<Range<usize>> {
-        let mut continuation = 0;
         loop {
-            let Some(newline_pos) = memchr(b'\n', &self.buffer[self.cursor + continuation..]) else {
-                continuation += self.cursor_space();
+            let Some(newline_pos) = memchr(b'\n', &self.buffer[self.cursor + self.continuation..]) else {
+                let prev_space = self.cursor_space();
                 self.read_chunk().await?;
+                // Ordering of this statements is very important
+                // since future can be dropped after context
+                // is yielded by this await.
+                // `self.read_chunk` itself is atomic in sense of cancelation-safety.
+                //
+                // So, the **first** is read, the second is increase continuation.
+                self.continuation += prev_space;
+
                 continue;
             };
-            let additional = newline_pos + continuation;
+            let additional = newline_pos + self.continuation;
             let absolute_newline = self.cursor + additional;
             let return_range = self.cursor..absolute_newline;
 
             self.cursor += additional + 1/* newline */;
+            self.continuation = 0;
 
             break Ok(return_range);
         }
@@ -425,6 +536,7 @@ where
     }
 
     fn reset_state(&mut self) {
+        println!("Reset state");
         self.state = State::RequestLine;
         self.body = Body::ContentLength(0);
         self.forward_queue.reset();
@@ -465,8 +577,8 @@ where
         unsafe { self.buffer.set_len(data_len) };
     }
 
-    fn take_range(&self, range: Range<usize>) -> &[u8] {
-        &self.buffer[range]
+    fn take_range(this: &[u8], range: Range<usize>) -> &[u8] {
+        &this[range]
     }
 
     fn cursor_space(&self) -> usize {
