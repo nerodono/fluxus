@@ -80,7 +80,6 @@ where
         }
 
         HttpMasterCommand::Bound { on } => {
-            println!("Bound");
             writer
                 .server()
                 .write_server(&CreateServerResponseDescriptor::Http {

@@ -144,16 +144,19 @@ where
                     dst.send(HttpMasterCommand::BodyChunk {
                         buf: slice.into(),
                     })?;
+                    self.cursor += buffered;
                 }
 
-                Self::read_and_send_chunked(
-                    self.buffer.spare_capacity_mut(),
-                    dst,
-                    &mut self.reader,
-                    chunk_size as usize,
-                    0,
-                )
-                .await?;
+                if unbuffered != 0 {
+                    Self::read_and_send_chunked(
+                        self.buffer.spare_capacity_mut(),
+                        dst,
+                        &mut self.reader,
+                        chunk_size as usize,
+                        0,
+                    )
+                    .await?;
+                }
             } else {
                 self.cursor += buffered;
             }
@@ -536,7 +539,6 @@ where
     }
 
     fn reset_state(&mut self) {
-        println!("Reset state");
         self.state = State::RequestLine;
         self.body = Body::ContentLength(0);
         self.forward_queue.reset();
