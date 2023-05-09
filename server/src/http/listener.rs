@@ -121,33 +121,6 @@ async fn listen(
                 }
 
                 Err(e) => {
-                    if matches!(e, HttpError::BufferExhausted) {
-                        _ = connection
-                            .writer
-                            .write_all(BUFFER_EXHAUSTED.as_bytes())
-                            .await;
-                    } else {
-                        // Allocation
-                        let error_string = format!("{e}");
-                        _ = connection
-                            .writer
-                            .write_all(
-                                format!(
-                                    concat!(
-                                        "{tpl}",
-                                        "Content-Length: {len}\r\n",
-                                        "\r\n",
-                                        "{s}\n"
-                                    ),
-                                    tpl = INTERNAL_ERROR_TPL,
-                                    len = error_string.len(),
-                                    s = error_string
-                                )
-                                .as_bytes(),
-                            )
-                            .await;
-                    }
-
                     tracing::error!(
                         "{} disconnected from the HTTP server with an \
                          error: {e}",

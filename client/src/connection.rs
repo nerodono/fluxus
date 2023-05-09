@@ -121,8 +121,9 @@ where
             .try_read_forward_buffer(length, |_| true, flags)
             .await?;
 
-        let channel = self.map.get(&client_id).unwrap();
-        _ = channel.send(Command::Forward { buffer });
+        if let Some(channel) = self.map.get(&client_id) {
+            _ = channel.send(Command::Forward { buffer });
+        }
 
         Ok(())
     }
