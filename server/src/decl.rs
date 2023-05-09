@@ -1,10 +1,10 @@
 #[allow(unused_macros)]
-macro_rules! break_ {
+macro_rules! continue_ {
     ($r:expr) => {
         match $r {
             Ok(v) => v,
             Err(..) => {
-                break;
+                continue;
             }
         }
     };
@@ -172,9 +172,9 @@ macro_rules! config {
     };
 }
 
-#[allow(unused_imports)]
-pub(crate) use break_;
 pub(crate) use chan_permits;
 pub(crate) use config;
+#[allow(unused_imports)]
+pub(crate) use continue_;
 pub(crate) use permit_issuers;
 pub(crate) use unchecked_unwraps;

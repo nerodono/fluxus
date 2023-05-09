@@ -3,7 +3,6 @@ use std::sync::Arc;
 use eyre::Context;
 use owo_colors::OwoColorize;
 use tokio::{
-    io::AsyncWriteExt,
     net::TcpListener,
     sync::mpsc,
 };
@@ -17,15 +16,8 @@ use crate::{
         },
         http::collection::EndpointCollection,
     },
-    decl::break_,
-    error::HttpError,
-    http::{
-        connection::Connection,
-        responses::{
-            BUFFER_EXHAUSTED,
-            INTERNAL_ERROR_TPL,
-        },
-    },
+    decl::continue_,
+    http::connection::Connection,
     utils::{
         features::http::HttpChannel,
         named_join_handle::NamedJoinHandle,
@@ -75,13 +67,13 @@ async fn listen(
                             permit.clone()
                         ).await {
                             Ok(()) => {
-                                break_!(permit.send(
+                                continue_!(permit.send(
                                     HttpMasterCommand::Bound { on: None }.unidentified()
                                 ));
                             }
 
                             Err(_) => {
-                                break_!(permit.send(
+                                continue_!(permit.send(
                                     HttpMasterCommand::FailedToBind.unidentified()
                                 ));
                             }
@@ -132,7 +124,7 @@ async fn listen(
     }
 
     tracing::error!(
-        "All senders of the HTTP masterrequests channel was dropped, \
+        "All senders of the HTTP master requests channel was dropped, \
          shutting down..."
     );
 

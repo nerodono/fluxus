@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use const_format::formatcp;
 
 pub const SERVER_NAME: &str = env!("CARGO_PKG_NAME");
