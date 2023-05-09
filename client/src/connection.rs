@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use galaxy_network::{
     raw::{
+        ErrorCode,
         PacketFlags,
         PacketType,
     },
@@ -53,7 +54,10 @@ where
 {
     async fn handle_error(&mut self) -> eyre::Result<()> {
         let error_code = self.reader.read_error_code().await?;
-        tracing::error!("Got error: {error_code}");
+        // Too common error to display
+        if error_code != ErrorCode::ClientDoesNotExists {
+            tracing::error!("Got error: {error_code}");
+        }
 
         Ok(())
     }
@@ -63,10 +67,16 @@ where
         flags: PacketFlags,
     ) -> eyre::Result<()> {
         let client_id = self.reader.read_client_id(flags).await?;
-        let channel = self.map.remove(&client_id).unwrap();
-        _ = channel.send(Command::Disconnect);
+        self.map.remove(&client_id).map_or_else(
+            || {
+                tracing::error!("Failed to remove ID{}", client_id.bold());
+            },
+            |channel| {
+                _ = channel.send(Command::Disconnect);
+            },
+        );
 
-        tracing::info!("Client {client_id} is disconnected");
+        tracing::info!("Client ID{} is disconnected", client_id.bold());
         Ok(())
     }
 
@@ -77,6 +87,8 @@ where
         let client_id = self.reader.read_client_id(flags).await?;
         let (tx, rx) = mpsc::unbounded_channel();
         self.map.insert(client_id, tx);
+
+        tracing::info!("Connected client {client_id}");
 
         let stream = match TcpStream::connect(&self.local).await {
             Ok(s) => s,
@@ -119,6 +131,10 @@ where
         &mut self,
         IdentifiedCommand { id, command }: IdentifiedCommand,
     ) -> eyre::Result<()> {
+        if !self.map.contains_key(&id) {
+            return Ok(());
+        }
+
         match command {
             Command::Forward { buffer } => {
                 self.writer

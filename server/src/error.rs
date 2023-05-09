@@ -29,8 +29,17 @@ pub enum HttpError {
     #[error("Channel for communication was closed")]
     ChannelClosed,
 
+    #[error(
+        "Server decided to not handle this chunked request because of too \
+         large headers"
+    )]
+    DecidedToNotHandleChunked,
+
     #[error("Capacity of buffer was exhausted")]
     BufferExhausted,
+
+    #[error("Buffer exhausted during retrival of the chunk size")]
+    BufferExhaustedDuringChunkRecv,
 
     #[error("No newline")]
     NoNewline,
@@ -46,6 +55,9 @@ pub enum HttpError {
 
     #[error("Client disconnected during read")]
     Disconnected,
+
+    #[error("Remote server disconnected")]
+    ServerDisconnected,
 }
 
 #[integral_enum]

@@ -24,6 +24,46 @@ pub struct Destination {
 }
 
 impl Destination {
+    pub fn send_if_valid(
+        this: &Option<Self>,
+        command: impl FnOnce() -> HttpMasterCommand,
+    ) -> HttpResult<()> {
+        Self::valid_for_send(this)
+            .map_or_else(|| Ok(()), |dest| dest.send(command()))
+    }
+
+    pub const fn valid_for_send(this: &Option<Self>) -> Option<&Self> {
+        if let Some(
+            ref this @ Self {
+                discovered: true, ..
+            },
+        ) = this
+        {
+            Some(this)
+        } else {
+            None
+        }
+    }
+
+    pub fn valid_for_send_mut(this: &mut Option<Self>) -> Option<&mut Self> {
+        if let Some(
+            ref mut this @ Self {
+                discovered: true, ..
+            },
+        ) = this
+        {
+            Some(this)
+        } else {
+            None
+        }
+    }
+
+    pub fn set_discovered_opt(this: &mut Option<Self>, to: bool) {
+        if let Some(ref mut this) = this {
+            this.discovered = to;
+        }
+    }
+
     pub fn same_endpoint(&self, endpoint: &[u8]) -> bool {
         self.dest_id == endpoint
     }
@@ -33,10 +73,10 @@ impl Destination {
     }
 
     pub fn recv_command(
-        maybe_this: Option<&mut Self>,
+        maybe_this: &mut Option<Self>,
     ) -> RecvFuture<'_, HttpSlaveCommand> {
         match maybe_this {
-            Some(this) => RecvFuture::Channel(&mut this.rx),
+            Some(ref mut this) => RecvFuture::Channel(&mut this.rx),
             None => RecvFuture::Pending,
         }
     }

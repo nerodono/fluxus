@@ -8,11 +8,8 @@ pub enum HttpMasterCommand {
         chan: mpsc::UnboundedSender<HttpSlaveCommand>,
         immediate_forward: Vec<u8>,
     },
-    Header {
-        buf: Vec<u8>,
-    },
-    BodyChunk {
-        buf: Vec<u8>,
+    Forward {
+        buffer: Vec<u8>,
     },
 
     Disconnected,

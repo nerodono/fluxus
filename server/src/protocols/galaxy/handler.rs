@@ -20,6 +20,7 @@ use crate::{
     config::Config,
     data::user::User,
     error::{
+        NonCriticalError,
         ProcessError,
         ProcessResult,
     },
@@ -117,10 +118,16 @@ pub async fn handle_connection(
         match processing_result {
             Ok(()) => {}
             Err(ProcessError::NonCritical(non_critical_error)) => {
-                tracing::error!(
-                    "{} got non-critical error: {non_critical_error}",
-                    address.bold()
-                );
+                if !matches!(
+                    non_critical_error,
+                    NonCriticalError::ClientIsNotFound { .. }
+                ) {
+                    tracing::error!(
+                        "{} got non-critical error: {non_critical_error}",
+                        address.bold()
+                    );
+                }
+
                 _ = connection
                     .writer
                     .server()

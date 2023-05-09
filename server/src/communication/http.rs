@@ -26,7 +26,7 @@ pub async fn handle_command<W, C>(
     pool: &Pool,
     writer: &mut GalaxyWriter<W, C>,
     server: &mut HttpServer,
-    threshold: Option<NonZeroU16>,
+    _threshold: Option<NonZeroU16>,
     IdentifiedHttpMasterCommand { id, command }: IdentifiedHttpMasterCommand,
 ) -> ProcessResult<bool>
 where
@@ -35,20 +35,14 @@ where
 {
     match command {
         HttpMasterCommand::Disconnected => {
-            server.channels.remove(id)?.return_id(pool).await;
+            if let Ok(r) = server.channels.remove(id) {
+                r.return_id(pool).await;
+            }
             writer.write_disconnected(id).await?;
         }
 
-        HttpMasterCommand::Header { buf }
-        | HttpMasterCommand::BodyChunk { buf } => {
-            let buf_len = buf.len() as u16;
-            writer
-                .write_forward(
-                    id,
-                    &buf,
-                    threshold.map_or(true, |v| buf_len >= v.get()),
-                )
-                .await?;
+        HttpMasterCommand::Forward { buffer } => {
+            writer.write_forward(id, &buffer, false).await?;
         }
 
         HttpMasterCommand::FailedToBind => {
@@ -62,8 +56,9 @@ where
             chan,
             immediate_forward,
         } => {
-            let Ok(imm_len): Result<u16, _> = immediate_forward.len().try_into() else {
+            let Ok(_imm_len): Result<u16, _> = immediate_forward.len().try_into() else {
                 // TODO: Display rare error
+                tracing::error!("TODO: Error");
                 return Ok(false);
             };
 
@@ -71,11 +66,7 @@ where
             _ = writer.server().write_connected(id).await;
 
             writer
-                .write_forward(
-                    id,
-                    &immediate_forward,
-                    threshold.map_or(true, |v| imm_len >= v.get()),
-                )
+                .write_forward(id, &immediate_forward, false)
                 .await?;
         }
 
