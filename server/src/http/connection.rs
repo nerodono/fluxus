@@ -391,21 +391,12 @@ where
 
         while size != 0 {
             let cur_chunk_size = size.min(buffer_len);
-            let cur_chunk;
-            tokio::select! {
-                command = Destination::recv_command(dest) => {
-                    let command = command.ok_or(HttpError::ChannelClosed)?;
-                    Self::handle_command(&mut self.writer, command, dest).await?;
-                    continue;
-                }
-
-                c = Self::read_to_uninit(
-                    &mut self.reader,
-                    &mut buffer.data_mut()[..cur_chunk_size]
-                ) => {
-                    cur_chunk = c?.get();
-                }
-            }
+            let cur_chunk = Self::read_to_uninit(
+                &mut self.reader,
+                &mut buffer.data_mut()[..cur_chunk_size],
+            )
+            .await?
+            .get();
 
             Destination::send_if_valid(dest, || HttpMasterCommand::Forward {
                 buffer: Vec::from(unsafe {

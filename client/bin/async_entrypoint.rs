@@ -138,7 +138,7 @@ pub async fn async_main(args: CliArgs) -> eyre::Result<()> {
         ping.buffer_read.get(),
         reader,
         writer,
-        4096,
+        100,
     );
     connection.run().await
 }

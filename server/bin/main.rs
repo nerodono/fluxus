@@ -53,6 +53,7 @@ fn main() -> eyre::Result<()> {
         }
     }
     .enable_io()
+    .enable_time()
     .build()
     .wrap_err("Failed to create tokio runtime")?;
 

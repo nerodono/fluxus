@@ -18,6 +18,7 @@ features = [
     "io-util",
     "macros",
     "parking_lot",
+    "time",
 ]
 version = "1.27"
 

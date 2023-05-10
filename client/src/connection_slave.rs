@@ -1,10 +1,15 @@
+use std::sync::Arc;
+
 use tokio::{
     io::{
         AsyncReadExt,
         AsyncWriteExt,
     },
     net::TcpStream,
-    sync::mpsc,
+    sync::{
+        mpsc,
+        Semaphore,
+    },
 };
 
 use crate::command::{
@@ -19,8 +24,10 @@ pub async fn run_slave(
     mut slave: mpsc::Receiver<Command>,
     allocate: usize,
 ) {
+    let semaphore = Arc::new(Semaphore::const_new(10));
     let mut gracefully = false;
     let mut buffer = vec![0; allocate];
+
     loop {
         let read_bytes;
         tokio::select! {
@@ -59,7 +66,10 @@ pub async fn run_slave(
                 Command::Forward {
                     buffer: Vec::from(&buffer[..read_bytes]),
                 }
-                .identified_by(id),
+                .identified_by(
+                    semaphore.clone().acquire_owned().await.unwrap(),
+                    id,
+                ),
             )
             .await
             .is_err()
@@ -70,7 +80,10 @@ pub async fn run_slave(
 
     if !gracefully {
         _ = master
-            .send(Command::Disconnect.identified_by(id))
+            .send(Command::Disconnect.identified_by(
+                semaphore.clone().acquire_owned().await.unwrap(),
+                id,
+            ))
             .await;
     }
 }

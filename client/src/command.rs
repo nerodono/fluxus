@@ -1,5 +1,8 @@
+use tokio::sync::OwnedSemaphorePermit;
+
 #[derive(Debug)]
 pub struct IdentifiedCommand {
+    pub permit: OwnedSemaphorePermit,
     pub id: u16,
     pub command: Command,
 }
@@ -11,8 +14,13 @@ pub enum Command {
 }
 
 impl Command {
-    pub const fn identified_by(self, by: u16) -> IdentifiedCommand {
+    pub const fn identified_by(
+        self,
+        permit: OwnedSemaphorePermit,
+        by: u16,
+    ) -> IdentifiedCommand {
         IdentifiedCommand {
+            permit,
             id: by,
             command: self,
         }

@@ -129,7 +129,11 @@ where
 
     async fn handle_command(
         &mut self,
-        IdentifiedCommand { id, command }: IdentifiedCommand,
+        IdentifiedCommand {
+            id,
+            command,
+            permit,
+        }: IdentifiedCommand,
     ) -> eyre::Result<()> {
         if !self.map.contains_key(&id) {
             return Ok(());
@@ -151,6 +155,9 @@ where
                 self.writer.write_disconnected(id).await?;
             }
         }
+
+        drop(permit);
+
         Ok(())
     }
 
