@@ -111,7 +111,7 @@ where
                 let start_cursor = self.buffer.cursor;
                 let mut overwritten = false;
                 loop {
-                    let result = self.read_line(dest).await;
+                    let result = self.read_line().await;
                     let size_range = match result {
                         Ok(r) => r,
                         Err(HttpError::BufferExhausted) => {
@@ -202,7 +202,6 @@ where
                 .await?;
         }
 
-        self.prepare_new_request();
         Ok(())
     }
 
@@ -211,7 +210,7 @@ where
         dest: &mut Option<Destination>,
     ) -> HttpResult<()> {
         loop {
-            let line_range = self.read_line(dest).await?;
+            let line_range = self.read_line().await?;
             let line = self.buffer.take_range(line_range);
             self.forward_queue.append_header(line.len());
 
@@ -243,15 +242,7 @@ where
 
                 if let Some(ref mut dest) = dest {
                     if dest.same_endpoint(value) {
-                        let buf = self
-                            .buffer
-                            .take_range(self.forward_queue.range());
-
                         dest.discovered = true;
-                        dest.send(HttpMasterCommand::Forward {
-                            buffer: Vec::from(buf),
-                        })
-                        .await?;
                         continue;
                     }
                 }
@@ -276,7 +267,7 @@ where
     async fn handle_command(
         writer: &mut W,
         command: HttpSlaveCommand,
-        dest: &mut Option<Destination>,
+        dest: &mut Destination,
     ) -> HttpResult<()> {
         match command {
             HttpSlaveCommand::Forward { buf } => {
@@ -284,12 +275,7 @@ where
             }
 
             HttpSlaveCommand::Disconnect => {
-                if let Some(ref mut dest) = dest {
-                    dest.discovered = false;
-                    dest.dont_notify();
-                }
-
-                *dest = None;
+                dest.dont_notify();
                 return Err(HttpError::ServerDisconnected);
             }
         }
@@ -300,10 +286,26 @@ where
     pub async fn run(&mut self) -> HttpResult<()> {
         let mut dest: Option<Destination> = None;
         loop {
-            let request_line_range = self.read_line(&mut dest).await?;
+            let request_line_range;
+            tokio::select! {
+                command = Destination::recv_command(&mut dest) => {
+                    Self::handle_command(
+                        &mut self.writer,
+                        command.ok_or(HttpError::ChannelClosed)?,
+                        unsafe { dest.as_mut().unwrap_unchecked() },
+                    ).await?;
+                    continue;
+                }
+
+                range = self.read_line() => {
+                    request_line_range = range?;
+                }
+            }
+
             self.forward_queue
                 .fill_request_line(request_line_range);
             self.handle_headers(&mut dest).await?;
+            self.prepare_new_request();
         }
     }
 }
@@ -315,29 +317,12 @@ where
     R: Read,
     W: Write,
 {
-    async fn read_line(
-        &mut self,
-        dest: &mut Option<Destination>,
-    ) -> HttpResult<Range<usize>> {
+    async fn read_line(&mut self) -> HttpResult<Range<usize>> {
         loop {
             let (slice, offset) = self.buffer.search_slice();
             let Some(newline_pos) = memchr(b'\n', slice) else {
                 let slice_len = slice.len();
-                let _read;
-                loop {
-                    tokio::select! {
-                        res = self.read_chunk() => {
-                            _read = res?;
-                            break;
-                        }
-
-                        command = Destination::recv_command(dest) => {
-                            let command = command.ok_or(HttpError::ChannelClosed)?;
-                            Self::handle_command(&mut self.writer, command, dest).await?;
-                            continue;
-                        }
-                    }
-                }
+                self.read_chunk().await?;
 
                 self.buffer.continuation += slice_len;
 

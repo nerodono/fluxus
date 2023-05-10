@@ -75,7 +75,6 @@ where
             tracing::error!("Failed to remove ID{}", client_id.bold());
         }
 
-        tracing::info!("Client ID{} is disconnected", client_id.bold());
         Ok(())
     }
 
@@ -87,7 +86,10 @@ where
         let (tx, rx) = mpsc::channel(self.channel_capacity);
         self.map.insert(client_id, tx);
 
-        tracing::info!("Connected client {client_id}");
+        tracing::info!(
+            "Connected client {}",
+            format_args!("ID{client_id}").bold()
+        );
 
         let stream = match TcpStream::connect(&self.local).await {
             Ok(s) => s,
@@ -147,10 +149,6 @@ where
             }
 
             Command::Disconnect => {
-                tracing::info!(
-                    "Client {} was disconnected by the server",
-                    id.bold()
-                );
                 self.map.remove(&id);
                 self.writer.write_disconnected(id).await?;
             }

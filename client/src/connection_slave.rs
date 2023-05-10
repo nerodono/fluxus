@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use owo_colors::OwoColorize;
 use tokio::{
     io::{
         AsyncReadExt,
@@ -24,7 +25,7 @@ pub async fn run_slave(
     mut slave: mpsc::Receiver<Command>,
     allocate: usize,
 ) {
-    let semaphore = Arc::new(Semaphore::const_new(10));
+    let semaphore = Arc::new(Semaphore::const_new(64));
     let mut gracefully = false;
     let mut buffer = vec![0; allocate];
 
@@ -61,15 +62,12 @@ pub async fn run_slave(
             }
         }
 
+        let vec = Vec::from(&buffer[..read_bytes]);
+        let sem_permit = semaphore.clone().acquire_owned().await.unwrap();
         if master
             .send(
-                Command::Forward {
-                    buffer: Vec::from(&buffer[..read_bytes]),
-                }
-                .identified_by(
-                    semaphore.clone().acquire_owned().await.unwrap(),
-                    id,
-                ),
+                Command::Forward { buffer: vec }
+                    .identified_by(sem_permit, id),
             )
             .await
             .is_err()
@@ -78,7 +76,16 @@ pub async fn run_slave(
         }
     }
 
-    if !gracefully {
+    if gracefully {
+        tracing::info!(
+            "{} disconnected by the client",
+            format_args!("ID{id}").bold()
+        );
+    } else {
+        tracing::info!(
+            "{} disconnected by the server",
+            format_args!("ID{id}").bold()
+        );
         _ = master
             .send(Command::Disconnect.identified_by(
                 semaphore.clone().acquire_owned().await.unwrap(),
