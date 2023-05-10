@@ -49,6 +49,7 @@ impl User {
         &mut self,
         data: ProxyData,
         allocate_channel: usize,
+        max_per_permit: u32,
         issuer: impl FnOnce(&Proxy) -> Option<P>,
     ) -> (P, ShutdownToken, Pool) {
         let (tx, rx) = mpsc::channel(allocate_channel);
@@ -59,6 +60,7 @@ impl User {
             tx,
             rx,
             data,
+            max_send: max_per_permit,
             _shutdown_sender: sender.into(),
         };
         let issued_permit = issuer(&proxy).expect("This should not happen");

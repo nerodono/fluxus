@@ -62,11 +62,12 @@ async fn listen(
                     HttpServerRequest::Bind { endpoint, permit, pool } => {
                         // TODO: random endpoint selection
                         let endpoint = endpoint.unwrap();
-                        match collection.try_insert_endpoint(
+                        let insertion_result = collection.try_insert_endpoint(
                             pool,
                             endpoint,
                             permit.clone()
-                        ).await {
+                        ).await;
+                        match insertion_result {
                             Ok(()) => {
                                 continue_!(permit.send(
                                     HttpMasterCommand::Bound { on: None }.unidentified()
@@ -106,7 +107,8 @@ async fn listen(
                 collection,
                 channel_buffer,
             );
-            match connection.run().await {
+            let run_result = connection.run().await;
+            match run_result {
                 Ok(()) => {
                     tracing::info!(
                         "{} disconnected from the HTTP server",

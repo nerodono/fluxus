@@ -217,6 +217,7 @@ where
                 let (permit, token, pool) = self.user.replace_proxy(
                     ProxyData::Tcp(server),
                     buffering.channels.get(),
+                    buffering.per_channel.get(),
                     Proxy::issue_tcp_permit,
                 );
                 tokio::spawn(slaves::tcp::listener::listen(
@@ -267,6 +268,7 @@ where
                 let (permit, _, pool) = self.user.replace_proxy(
                     ProxyData::Http(server),
                     buffering.channels.get(),
+                    buffering.per_channel.get(),
                     Proxy::issue_http_permit,
                 );
                 http_chan.send(HttpServerRequest::Bind {

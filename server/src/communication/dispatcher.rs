@@ -13,7 +13,10 @@ use galaxy_network::{
 
 use crate::{
     data::{
-        commands::master::MasterCommand,
+        commands::master::{
+            MasterCommand,
+            PermittedMasterCommand,
+        },
         proxy::Proxy,
     },
     error::ProcessResult,
@@ -36,7 +39,7 @@ impl CommandDispatcher {
         &self,
         writer: &mut GalaxyWriter<W, C>,
         proxy: &mut Proxy,
-        command: MasterCommand,
+        PermittedMasterCommand { command, .. }: PermittedMasterCommand,
     ) -> ProcessResult<bool>
     where
         W: Write,

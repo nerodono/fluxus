@@ -7,7 +7,7 @@ use tokio::sync::{
     Mutex,
 };
 
-use super::commands::master::MasterCommand;
+use super::commands::master::PermittedMasterCommand;
 use crate::{
     decl::{
         permit_issuers,
@@ -34,11 +34,12 @@ cfg_if! {
 
 pub struct Proxy {
     pub pool: Pool,
-    pub tx: mpsc::Sender<MasterCommand>,
-    pub rx: mpsc::Receiver<MasterCommand>,
+    pub tx: mpsc::Sender<PermittedMasterCommand>,
+    pub rx: mpsc::Receiver<PermittedMasterCommand>,
 
     pub data: ProxyData,
     pub _shutdown_sender: RaiiShutdown,
+    pub max_send: u32,
 }
 
 pub enum ProxyData {

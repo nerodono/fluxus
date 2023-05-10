@@ -1,13 +1,14 @@
 #[allow(unused_macros)]
 macro_rules! continue_ {
-    ($r:expr) => {
-        match $r {
+    ($r:expr) => {{
+        let temp = $r;
+        match temp {
             Ok(v) => v,
             Err(..) => {
                 continue;
             }
         }
-    };
+    }};
 }
 
 macro_rules! permit_issuers {
@@ -18,7 +19,7 @@ macro_rules! permit_issuers {
             #[cfg(feature = "" [<$permit_name:lower>] "")]
             pub fn [<issue_ $permit_name:lower _permit>](&self) -> Option<[<$permit_name:camel Permit>]> {
                 if matches!(self.data, ProxyData::[<$permit_name:camel>](..)) {
-                    Some(unsafe { [<$permit_name:camel Permit>]::new(self.tx.clone()) })
+                    Some(unsafe { [<$permit_name:camel Permit>]::new(self.tx.clone(), self.max_send) })
                 } else {
                     None
                 }
@@ -48,50 +49,58 @@ macro_rules! unchecked_unwraps {
 }
 
 macro_rules! chan_permits {
-    (@new $enum:ident unsafe) => {
+    (@new $permitted:ident unsafe) => {
         /// # Safety
         ///
         /// Unsafe due to ability of producing wrong permits
-        pub const unsafe fn new(chan: tokio::sync::mpsc::Sender<$enum>) -> Self {
-            Self { chan }
+        pub unsafe fn new(chan: tokio::sync::mpsc::Sender<$permitted>, size: u32) -> Self {
+            Self {
+                max_send: size,
+                chan,
+                semaphore: tokio::sync::Semaphore::const_new(size as _).into(),
+            }
         }
     };
 
-    (@new $enum:ident safe) => {
-        pub const fn new(chan: tokio::sync::mpsc::Sender<$enum>) -> Self {
-            Self { chan }
-        }
-    };
-
-    (@struct $variant:ident $enum:ident) => {paste::paste!{
-        #[derive(Clone)]
+    (@struct $variant:ident $permitted:ident) => {paste::paste!{
         pub struct [<$variant:camel Permit>] {
-            chan: tokio::sync::mpsc::Sender<$enum>,
+            max_send: u32,
+            semaphore: std::sync::Arc<tokio::sync::Semaphore>,
+            chan: tokio::sync::mpsc::Sender<$permitted>,
+        }
+
+        impl Clone for [<$variant:camel Permit>] {
+            fn clone(&self) -> Self {
+                Self {
+                    max_send: self.max_send,
+                    semaphore: tokio::sync::Semaphore::const_new(self.max_send as _).into(),
+                    chan: self.chan.clone(),
+                }
+            }
         }
     }};
 
-    (@struct $variant:ident $enum:ident $explicit_name:ident) => {
-        #[derive(Clone)]
-        pub struct $explicit_name {
-            chan: tokio::sync::mpsc::Sender<$enum>
-        }
-    };
-
-    ($keyword:ident, $enum:ident::[
-        $($variant:ident $($explicit_name:ident)? : $command_ty:ty),*
+    ($keyword:ident, $permitted:ident, $enum:ident::[
+        $($variant:ident : $command_ty:ty),*
     ]) => {paste::paste! {
         $(
             cfg_if::cfg_if! {
                 if #[cfg(feature = "" [<$variant:lower>] "")] {
                     $crate::decl::chan_permits!(
-                        @struct $variant $enum $($explicit_name)?
+                        @struct $variant $permitted
                     );
 
                     impl [<$variant Permit>] {
-                        $crate::decl::chan_permits!(@new $enum $keyword);
+                        $crate::decl::chan_permits!(@new $permitted $keyword);
 
                         pub async fn send(&self, command: $command_ty) -> Result<(), crate::error::PermitSendError> {
-                            self.chan.send($enum::$variant(command)).await.map_err(
+                            let permit = self.semaphore.clone().acquire_owned().await.map_err(
+                                |_| crate::error::PermitSendError::SemaphoreAcquire
+                            )?;
+                            self.chan.send($permitted {
+                                _permit: permit,
+                                command: $enum::$variant(command)
+                            }).await.map_err(
                                 |_| crate::error::PermitSendError::Closed
                             )
                         }

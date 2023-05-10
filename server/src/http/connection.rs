@@ -77,12 +77,12 @@ where
         &mut self,
         dest: &mut Option<Destination>,
     ) -> HttpResult<()> {
-        match self.body {
+        match &self.body {
             Body::ContentLength(length) => {
                 let BodyBytes {
                     buffered,
                     unbuffered,
-                } = self.buffer.calc_recv_sizes(length);
+                } = self.buffer.calc_recv_sizes(*length);
 
                 if buffered != 0 {
                     Destination::send_if_valid(&*dest, || {
@@ -111,7 +111,8 @@ where
                 let start_cursor = self.buffer.cursor;
                 let mut overwritten = false;
                 loop {
-                    let size_range = match self.read_line(dest).await {
+                    let result = self.read_line(dest).await;
+                    let size_range = match result {
                         Ok(r) => r,
                         Err(HttpError::BufferExhausted) => {
                             if overwritten {

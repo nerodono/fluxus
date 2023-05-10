@@ -9,9 +9,9 @@ use std::{
 
 use tokio::sync::mpsc;
 
-use crate::data::commands::master::MasterCommand;
+use crate::data::commands::master::PermittedMasterCommand;
 
-pub enum RecvFuture<'a, T = MasterCommand> {
+pub enum RecvFuture<'a, T = PermittedMasterCommand> {
     Channel(&'a mut mpsc::Receiver<T>),
     Pending,
 }

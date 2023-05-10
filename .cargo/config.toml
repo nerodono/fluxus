@@ -20,7 +20,8 @@ rustflags = [
     "-Aclippy::cast-lossless",
     "-Aclippy::trivially-copy-pass-by-ref",
     "-Aclippy::similar-names",
-    "-Aclippy::missing-panics-doc",          # Annoying lint, triggers even on todo! macro
+    "-Aclippy::missing-panics-doc",            # Annoying lint, triggers even on todo! macro
     "-Aclippy::unnecessary-wraps",
     "-Aclippy::significant-drop-tightening",
+    "-Aclippy::significant-drop-in-scrutinee",
 ]

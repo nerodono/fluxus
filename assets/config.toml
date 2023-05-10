@@ -3,7 +3,9 @@ listen = "0.0.0.0:6567"
 name = "fluxus/1.0"
 
 buffering.read = 4096
+
 buffering.channels = 4096
+buffering.per_channel = 100
 
 [logging]
 level = "info"

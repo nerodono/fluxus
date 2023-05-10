@@ -1,4 +1,5 @@
 use cfg_if::cfg_if;
+use tokio::sync::OwnedSemaphorePermit;
 
 use crate::decl::chan_permits;
 
@@ -14,6 +15,11 @@ cfg_if! {
     }
 }
 
+pub struct PermittedMasterCommand {
+    _permit: OwnedSemaphorePermit,
+    pub command: MasterCommand,
+}
+
 pub enum MasterCommand {
     #[cfg(feature = "tcp")]
     Tcp(TcpMasterCommand),
@@ -23,7 +29,7 @@ pub enum MasterCommand {
 }
 
 chan_permits! {
-    unsafe, MasterCommand::[
+    unsafe, PermittedMasterCommand, MasterCommand::[
         Tcp: TcpMasterCommand,
         Http: IdentifiedHttpMasterCommand
     ]

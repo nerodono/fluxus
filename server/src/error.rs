@@ -65,6 +65,9 @@ pub enum HttpError {
 pub enum PermitSendError {
     #[error("The channel is closed")]
     Closed,
+
+    #[error("Failed to acquire semaphore")]
+    SemaphoreAcquire,
 }
 
 #[derive(Debug, Error)]

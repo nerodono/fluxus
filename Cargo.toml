@@ -10,7 +10,15 @@ path = "crates/galaxy-network"
 version = "0.1.0"
 
 [workspace.dependencies.tokio]
-features = ["rt", "rt-multi-thread", "net", "sync", "io-util", "macros"]
+features = [
+    "rt",
+    "rt-multi-thread",
+    "net",
+    "sync",
+    "io-util",
+    "macros",
+    "parking_lot",
+]
 version = "1.27"
 
 [workspace.dependencies.serde]

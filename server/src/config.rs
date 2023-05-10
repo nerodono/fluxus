@@ -4,6 +4,7 @@ use std::{
     net::SocketAddr,
     num::{
         NonZeroU16,
+        NonZeroU32,
         NonZeroU8,
         NonZeroUsize,
     },
@@ -82,6 +83,7 @@ config! {
     struct BufferingConfig {
         read: NonZeroUsize,
         channels: NonZeroUsize,
+        per_channel: NonZeroU32,
     }
 
     struct LoggingConfig {
