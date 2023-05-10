@@ -97,7 +97,7 @@ where
                 }
 
                 if unbuffered != 0 {
-                    self.read_and_send_chunked(unbuffered, &*dest)
+                    self.read_and_send_chunked(unbuffered, dest)
                         .await?;
                 }
             }
@@ -183,7 +183,7 @@ where
                     }
 
                     if unbuffered != 0 {
-                        self.read_and_send_chunked(unbuffered, &*dest)
+                        self.read_and_send_chunked(unbuffered, dest)
                             .await?;
                     }
 
@@ -280,13 +280,13 @@ where
     }
 
     async fn handle_command(
-        &mut self,
+        writer: &mut W,
         command: HttpSlaveCommand,
         dest: &mut Option<Destination>,
     ) -> HttpResult<()> {
         match command {
             HttpSlaveCommand::Forward { buf } => {
-                self.writer.write_all(&buf).await?;
+                writer.write_all(&buf).await?;
             }
 
             HttpSlaveCommand::Disconnect => {
@@ -339,7 +339,7 @@ where
 
                         command = Destination::recv_command(dest) => {
                             let command = command.ok_or(HttpError::ChannelClosed)?;
-                            self.handle_command(command, dest).await?;
+                            Self::handle_command(&mut self.writer, command, dest).await?;
                             continue;
                         }
                     }
@@ -380,7 +380,7 @@ where
     async fn read_and_send_chunked(
         &mut self,
         mut size: usize,
-        dest: &Option<Destination>,
+        dest: &mut Option<Destination>,
     ) -> HttpResult<()> {
         let mut buffer = if self.buffer.free_space() < 512 {
             MaybeHeapChunk::heap(Vec::with_capacity(512))
@@ -391,12 +391,21 @@ where
 
         while size != 0 {
             let cur_chunk_size = size.min(buffer_len);
-            let cur_chunk = Self::read_to_uninit(
-                &mut self.reader,
-                &mut buffer.data_mut()[..cur_chunk_size],
-            )
-            .await?
-            .get();
+            let cur_chunk;
+            tokio::select! {
+                command = Destination::recv_command(dest) => {
+                    let command = command.ok_or(HttpError::ChannelClosed)?;
+                    Self::handle_command(&mut self.writer, command, dest).await?;
+                    continue;
+                }
+
+                c = Self::read_to_uninit(
+                    &mut self.reader,
+                    &mut buffer.data_mut()[..cur_chunk_size]
+                ) => {
+                    cur_chunk = c?.get();
+                }
+            }
 
             Destination::send_if_valid(dest, || HttpMasterCommand::Forward {
                 buffer: Vec::from(unsafe {
