@@ -57,7 +57,7 @@ where
 
 impl<I> FlatIdPool<I> {
     fn next_swap(now: Instant) -> Instant {
-        now + Duration::from_secs(2)
+        now + Duration::from_secs(15)
     }
 
     pub fn new(start: I) -> Self {
