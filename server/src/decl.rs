@@ -98,7 +98,7 @@ macro_rules! chan_permits {
                                 |_| crate::error::PermitSendError::SemaphoreAcquire
                             )?;
                             self.chan.send($permitted {
-                                _permit: permit,
+                                permit,
                                 command: $enum::$variant(command)
                             }).await.map_err(
                                 |_| crate::error::PermitSendError::Closed

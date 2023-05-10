@@ -16,7 +16,7 @@ cfg_if! {
 }
 
 pub struct PermittedMasterCommand {
-    _permit: OwnedSemaphorePermit,
+    pub permit: OwnedSemaphorePermit,
     pub command: MasterCommand,
 }
 

@@ -39,13 +39,13 @@ impl CommandDispatcher {
         &self,
         writer: &mut GalaxyWriter<W, C>,
         proxy: &mut Proxy,
-        PermittedMasterCommand { command, .. }: PermittedMasterCommand,
+        PermittedMasterCommand { command, permit }: PermittedMasterCommand,
     ) -> ProcessResult<bool>
     where
         W: Write,
         C: Compressor,
     {
-        match command {
+        let result = match command {
             #[cfg(feature = "http")]
             MasterCommand::Http(http_cmd) => {
                 let server = unsafe { proxy.data.unwrap_http_unchecked() };
@@ -71,6 +71,10 @@ impl CommandDispatcher {
                 )
                 .await
             }
-        }
+        };
+
+        drop(permit);
+
+        result
     }
 }
