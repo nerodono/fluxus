@@ -25,7 +25,7 @@ pub async fn run_slave(
     mut slave: mpsc::Receiver<Command>,
     allocate: usize,
 ) {
-    let semaphore = Arc::new(Semaphore::const_new(64));
+    let semaphore = Arc::new(Semaphore::const_new(1024));
     let mut gracefully = false;
     let mut buffer = vec![0; allocate];
 
