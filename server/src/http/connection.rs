@@ -215,14 +215,16 @@ where
             let line = self.buffer.take_range(line_range);
             self.forward_queue.append_header(line.len());
 
-            Destination::send_if_valid(&*dest, || {
-                HttpMasterCommand::Forward {
-                    buffer: line.to_owned(),
-                }
-            })
-            .await?;
-
             if line == b"\r\n" {
+                let queue_data =
+                    self.buffer.take_range(self.forward_queue.range());
+                Destination::send_if_valid(&*dest, || {
+                    HttpMasterCommand::Forward {
+                        buffer: queue_data.to_owned(),
+                    }
+                })
+                .await?;
+
                 // Here's the body started
                 return self.handle_body(dest).await;
             }
@@ -255,15 +257,7 @@ where
                 }
 
                 let (tx, rx) = mpsc::channel(self.channel_capacity.get());
-                let (id, permit) = endpoint
-                    .assign_id(
-                        tx,
-                        Vec::from(
-                            self.buffer
-                                .take_range(self.forward_queue.range()),
-                        ),
-                    )
-                    .await?;
+                let (id, permit) = endpoint.assign_id(tx).await?;
                 *dest =
                     Some(Destination::new(id, value.to_owned(), permit, rx));
             } else if case_insensitive_eq_left(key, b"CONTENT-LENGTH") {

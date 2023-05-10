@@ -6,7 +6,6 @@ use crate::data::proxy::Pool;
 pub enum HttpMasterCommand {
     Connected {
         chan: mpsc::Sender<HttpSlaveCommand>,
-        immediate_forward: Vec<u8>,
     },
     Forward {
         buffer: Vec<u8>,

@@ -1,3 +1,5 @@
+pub mod debug;
+
 pub mod proxy_getter;
 pub mod recv_future;
 

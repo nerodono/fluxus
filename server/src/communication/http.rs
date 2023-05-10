@@ -52,22 +52,9 @@ where
                 .await?;
         }
 
-        HttpMasterCommand::Connected {
-            chan,
-            immediate_forward,
-        } => {
-            let Ok(_imm_len): Result<u16, _> = immediate_forward.len().try_into() else {
-                // TODO: Display rare error
-                tracing::error!("TODO: Error");
-                return Ok(false);
-            };
-
+        HttpMasterCommand::Connected { chan } => {
             server.channels.insert(id, chan);
             _ = writer.server().write_connected(id).await;
-
-            writer
-                .write_forward(id, &immediate_forward, false)
-                .await?;
         }
 
         HttpMasterCommand::Bound { on } => {
