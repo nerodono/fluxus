@@ -11,7 +11,7 @@ use crate::{
 
 /// Simple mapping for id:channel functionality
 pub struct ChannelsMap<T> {
-    channels: FxHashMap<u16, mpsc::UnboundedSender<T>>,
+    channels: FxHashMap<u16, mpsc::Sender<T>>,
 }
 
 impl<T> Default for ChannelsMap<T> {
@@ -22,18 +22,22 @@ impl<T> Default for ChannelsMap<T> {
     }
 }
 
-impl<T> From<FxHashMap<u16, mpsc::UnboundedSender<T>>> for ChannelsMap<T> {
-    fn from(value: FxHashMap<u16, mpsc::UnboundedSender<T>>) -> Self {
+impl<T> From<FxHashMap<u16, mpsc::Sender<T>>> for ChannelsMap<T> {
+    fn from(value: FxHashMap<u16, mpsc::Sender<T>>) -> Self {
         Self { channels: value }
     }
 }
 
 impl<T> ChannelsMap<T> {
-    pub fn insert(&mut self, id: u16, chan: mpsc::UnboundedSender<T>) {
+    pub fn insert(&mut self, id: u16, chan: mpsc::Sender<T>) {
         self.channels.insert(id, chan);
     }
 
-    pub fn send_command(&self, id: u16, command: T) -> NonCriticalResult<()> {
+    pub async fn send_command(
+        &self,
+        id: u16,
+        command: T,
+    ) -> NonCriticalResult<()> {
         let channel = self.channels.get(&id).ok_or(
             NonCriticalError::ClientIsNotFound {
                 id,
@@ -41,7 +45,7 @@ impl<T> ChannelsMap<T> {
             },
         )?;
 
-        channel.send(command).map_err(|_| {
+        channel.send(command).await.map_err(|_| {
             NonCriticalError::ClientIsNotFound {
                 id,
                 chan_closed: true,
@@ -52,7 +56,7 @@ impl<T> ChannelsMap<T> {
     pub fn remove(
         &mut self,
         id: u16,
-    ) -> NonCriticalResult<ReturnId<u16, mpsc::UnboundedSender<T>>> {
+    ) -> NonCriticalResult<ReturnId<u16, mpsc::Sender<T>>> {
         self.channels
             .remove(&id)
             .map(|channel| ReturnId::new(id, channel))

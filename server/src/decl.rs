@@ -52,13 +52,13 @@ macro_rules! chan_permits {
         /// # Safety
         ///
         /// Unsafe due to ability of producing wrong permits
-        pub const unsafe fn new(chan: tokio::sync::mpsc::UnboundedSender<$enum>) -> Self {
+        pub const unsafe fn new(chan: tokio::sync::mpsc::Sender<$enum>) -> Self {
             Self { chan }
         }
     };
 
     (@new $enum:ident safe) => {
-        pub const fn new(chan: tokio::sync::mpsc::UnboundedSender<$enum>) -> Self {
+        pub const fn new(chan: tokio::sync::mpsc::Sender<$enum>) -> Self {
             Self { chan }
         }
     };
@@ -66,14 +66,14 @@ macro_rules! chan_permits {
     (@struct $variant:ident $enum:ident) => {paste::paste!{
         #[derive(Clone)]
         pub struct [<$variant:camel Permit>] {
-            chan: tokio::sync::mpsc::UnboundedSender<$enum>,
+            chan: tokio::sync::mpsc::Sender<$enum>,
         }
     }};
 
     (@struct $variant:ident $enum:ident $explicit_name:ident) => {
         #[derive(Clone)]
         pub struct $explicit_name {
-            chan: tokio::sync::mpsc::UnboundedSender<$enum>
+            chan: tokio::sync::mpsc::Sender<$enum>
         }
     };
 
@@ -90,8 +90,8 @@ macro_rules! chan_permits {
                     impl [<$variant Permit>] {
                         $crate::decl::chan_permits!(@new $enum $keyword);
 
-                        pub fn send(&self, command: $command_ty) -> Result<(), crate::error::PermitSendError> {
-                            self.chan.send($enum::$variant(command)).map_err(
+                        pub async fn send(&self, command: $command_ty) -> Result<(), crate::error::PermitSendError> {
+                            self.chan.send($enum::$variant(command)).await.map_err(
                                 |_| crate::error::PermitSendError::Closed
                             )
                         }

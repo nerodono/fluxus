@@ -12,7 +12,7 @@ use tokio::sync::mpsc;
 use crate::data::commands::master::MasterCommand;
 
 pub enum RecvFuture<'a, T = MasterCommand> {
-    Channel(&'a mut mpsc::UnboundedReceiver<T>),
+    Channel(&'a mut mpsc::Receiver<T>),
     Pending,
 }
 

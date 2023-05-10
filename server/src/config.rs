@@ -81,6 +81,7 @@ config! {
 
     struct BufferingConfig {
         read: NonZeroUsize,
+        channels: NonZeroUsize,
     }
 
     struct LoggingConfig {

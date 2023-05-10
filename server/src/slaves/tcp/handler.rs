@@ -17,7 +17,7 @@ use crate::data::commands::{
 
 pub async fn handle_connection(
     id: u16,
-    mut rx: mpsc::UnboundedReceiver<TcpSlaveCommand>,
+    mut rx: mpsc::Receiver<TcpSlaveCommand>,
     read_buffer: usize,
     mut stream: TcpStream,
     permit: TcpPermit,
@@ -50,7 +50,7 @@ pub async fn handle_connection(
                 };
 
                 let buffer = Vec::from(&buffer[..read]);
-                if permit.send(TcpMasterCommand::Forward { id, buffer }).is_err() {
+                if permit.send(TcpMasterCommand::Forward { id, buffer }).await.is_err() {
                     break;
                 }
             }
@@ -58,6 +58,8 @@ pub async fn handle_connection(
     }
 
     if !gracefully {
-        _ = permit.send(TcpMasterCommand::Disconnected { id });
+        _ = permit
+            .send(TcpMasterCommand::Disconnected { id })
+            .await;
     }
 }

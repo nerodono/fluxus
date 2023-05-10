@@ -1,6 +1,7 @@
 use std::{
     io,
     net::SocketAddr,
+    num::NonZeroUsize,
 };
 
 use idpool::interface::IdPool;
@@ -29,6 +30,7 @@ pub async fn listen(
     permit: TcpPermit,
     pool: Pool,
     read_buffer: usize,
+    channel_capacity: NonZeroUsize,
     mut token: ShutdownToken,
 ) -> io::Result<()> {
     tracing::info!(
@@ -56,10 +58,11 @@ pub async fn listen(
         let Some(id) = pool.lock().await.request() else {
             continue;
         };
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::channel(channel_capacity.get());
 
         if permit
             .send(TcpMasterCommand::Connected { id, chan: tx })
+            .await
             .is_err()
         {
             break;
@@ -79,7 +82,7 @@ pub async fn listen(
         });
     }
 
-    _ = permit.send(TcpMasterCommand::Stopped);
+    _ = permit.send(TcpMasterCommand::Stopped).await;
 
     Ok(())
 }

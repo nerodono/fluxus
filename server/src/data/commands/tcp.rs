@@ -4,7 +4,7 @@ use tokio::sync::mpsc;
 pub enum TcpMasterCommand {
     Connected {
         id: u16,
-        chan: mpsc::UnboundedSender<TcpSlaveCommand>,
+        chan: mpsc::Sender<TcpSlaveCommand>,
     },
 
     Forward {

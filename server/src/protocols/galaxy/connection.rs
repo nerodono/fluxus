@@ -118,18 +118,22 @@ where
         match &mut proxy.data {
             #[cfg(feature = "http")]
             ProxyData::Http(http) => {
-                http.channels.send_command(
-                    client_id,
-                    HttpSlaveCommand::Forward { buf: buffer },
-                )?;
+                http.channels
+                    .send_command(
+                        client_id,
+                        HttpSlaveCommand::Forward { buf: buffer },
+                    )
+                    .await?;
             }
 
             #[cfg(feature = "tcp")]
             ProxyData::Tcp(tcp) => {
-                tcp.clients.send_command(
-                    client_id,
-                    TcpSlaveCommand::Forward { buffer },
-                )?;
+                tcp.clients
+                    .send_command(
+                        client_id,
+                        TcpSlaveCommand::Forward { buffer },
+                    )
+                    .await?;
             }
         }
         Ok(())
@@ -152,7 +156,7 @@ where
                     .remove(client_id)?
                     .return_id(&proxy.pool)
                     .await;
-                _ = chan.send(HttpSlaveCommand::Disconnect);
+                _ = chan.send(HttpSlaveCommand::Disconnect).await;
             }
 
             #[cfg(feature = "tcp")]
@@ -162,7 +166,7 @@ where
                     .remove(client_id)?
                     .return_id(&proxy.pool)
                     .await;
-                _ = chan.send(TcpSlaveCommand::Disconnect);
+                _ = chan.send(TcpSlaveCommand::Disconnect).await;
             }
         }
 
@@ -194,6 +198,7 @@ where
             .into());
         }
 
+        let buffering = &self.config.server.buffering;
         match protocol {
             #[cfg(feature = "tcp")]
             Protocol::Tcp => {
@@ -211,6 +216,7 @@ where
                 let server = TcpServer::default();
                 let (permit, token, pool) = self.user.replace_proxy(
                     ProxyData::Tcp(server),
+                    buffering.channels.get(),
                     Proxy::issue_tcp_permit,
                 );
                 tokio::spawn(slaves::tcp::listener::listen(
@@ -219,7 +225,8 @@ where
                     bound_to,
                     permit,
                     pool,
-                    self.config.server.buffering.read.get(),
+                    buffering.read.get(),
+                    buffering.channels,
                     token,
                 ));
 
@@ -259,6 +266,7 @@ where
                 // [`HttpServer`]
                 let (permit, _, pool) = self.user.replace_proxy(
                     ProxyData::Http(server),
+                    buffering.channels.get(),
                     Proxy::issue_http_permit,
                 );
                 http_chan.send(HttpServerRequest::Bind {

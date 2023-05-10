@@ -15,8 +15,8 @@ use crate::command::{
 pub async fn run_slave(
     id: u16,
     mut stream: TcpStream,
-    master: mpsc::UnboundedSender<IdentifiedCommand>,
-    mut slave: mpsc::UnboundedReceiver<Command>,
+    master: mpsc::Sender<IdentifiedCommand>,
+    mut slave: mpsc::Receiver<Command>,
     allocate: usize,
 ) {
     let mut gracefully = false;
@@ -61,6 +61,7 @@ pub async fn run_slave(
                 }
                 .identified_by(id),
             )
+            .await
             .is_err()
         {
             break;
@@ -68,6 +69,8 @@ pub async fn run_slave(
     }
 
     if !gracefully {
-        _ = master.send(Command::Disconnect.identified_by(id));
+        _ = master
+            .send(Command::Disconnect.identified_by(id))
+            .await;
     }
 }

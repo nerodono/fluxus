@@ -48,9 +48,10 @@ impl User {
     pub fn replace_proxy<P>(
         &mut self,
         data: ProxyData,
+        allocate_channel: usize,
         issuer: impl FnOnce(&Proxy) -> Option<P>,
     ) -> (P, ShutdownToken, Pool) {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::channel(allocate_channel);
         let (token, sender) = shutdown_token();
         let pool = Arc::new(Mutex::new(FlatIdPool::new(0)));
         let proxy = Proxy {

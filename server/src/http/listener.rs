@@ -39,6 +39,7 @@ async fn listen(
     let bound_to = listener.local_addr()?;
     let buffer_size = config.server.buffering.read.get();
     let discovery_method = http.discovery_method;
+    let channel_buffer = config.server.buffering.channels;
 
     let collection = Arc::new(EndpointCollection::new());
 
@@ -69,13 +70,13 @@ async fn listen(
                             Ok(()) => {
                                 continue_!(permit.send(
                                     HttpMasterCommand::Bound { on: None }.unidentified()
-                                ));
+                                ).await);
                             }
 
                             Err(_) => {
                                 continue_!(permit.send(
                                     HttpMasterCommand::FailedToBind.unidentified()
-                                ));
+                                ).await);
                             }
                         }
                     }
@@ -103,6 +104,7 @@ async fn listen(
                 buffer_size,
                 discovery_method,
                 collection,
+                channel_buffer,
             );
             match connection.run().await {
                 Ok(()) => {

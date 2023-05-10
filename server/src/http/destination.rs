@@ -17,19 +17,22 @@ pub struct Destination {
     pub dest_id: Vec<u8>,
     pub permit: HttpPermit,
 
-    pub rx: mpsc::UnboundedReceiver<HttpSlaveCommand>,
+    pub rx: mpsc::Receiver<HttpSlaveCommand>,
     pub discovered: bool,
 
     notify_disconnected: bool,
 }
 
 impl Destination {
-    pub fn send_if_valid(
+    pub async fn send_if_valid(
         this: &Option<Self>,
         command: impl FnOnce() -> HttpMasterCommand,
     ) -> HttpResult<()> {
-        Self::valid_for_send(this)
-            .map_or_else(|| Ok(()), |dest| dest.send(command()))
+        if let Some(this) = Self::valid_for_send(this) {
+            this.send(command()).await
+        } else {
+            Ok(())
+        }
     }
 
     pub const fn valid_for_send(this: &Option<Self>) -> Option<&Self> {
@@ -81,9 +84,10 @@ impl Destination {
         }
     }
 
-    pub fn send(&self, command: HttpMasterCommand) -> HttpResult<()> {
+    pub async fn send(&self, command: HttpMasterCommand) -> HttpResult<()> {
         self.permit
             .send(command.identified(self.id))
+            .await
             .map_err(Into::into)
     }
 
@@ -91,7 +95,7 @@ impl Destination {
         id: u16,
         dest_id: Vec<u8>,
         permit: HttpPermit,
-        rx: mpsc::UnboundedReceiver<HttpSlaveCommand>,
+        rx: mpsc::Receiver<HttpSlaveCommand>,
     ) -> Self {
         Self {
             id,
@@ -107,7 +111,13 @@ impl Destination {
 impl Drop for Destination {
     fn drop(&mut self) {
         if self.notify_disconnected {
-            _ = self.send(HttpMasterCommand::Disconnected);
+            let permit = self.permit.clone();
+            let id = self.id;
+            tokio::spawn(async move {
+                _ = permit
+                    .send(HttpMasterCommand::Disconnected.identified(id))
+                    .await;
+            });
         }
     }
 }

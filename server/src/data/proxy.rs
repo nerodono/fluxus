@@ -34,8 +34,8 @@ cfg_if! {
 
 pub struct Proxy {
     pub pool: Pool,
-    pub tx: mpsc::UnboundedSender<MasterCommand>,
-    pub rx: mpsc::UnboundedReceiver<MasterCommand>,
+    pub tx: mpsc::Sender<MasterCommand>,
+    pub rx: mpsc::Receiver<MasterCommand>,
 
     pub data: ProxyData,
     pub _shutdown_sender: RaiiShutdown,

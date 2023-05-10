@@ -26,7 +26,7 @@ pub struct Endpoint {
 impl Endpoint {
     pub async fn assign_id(
         &self,
-        chan: mpsc::UnboundedSender<HttpSlaveCommand>,
+        chan: mpsc::Sender<HttpSlaveCommand>,
         immediate_forward: Vec<u8>,
     ) -> HttpResult<(u16, HttpPermit)> {
         let id = self
@@ -35,13 +35,15 @@ impl Endpoint {
             .await
             .request()
             .ok_or(HttpError::PoolExhausted)?;
-        self.permit.send(
-            HttpMasterCommand::Connected {
-                chan,
-                immediate_forward,
-            }
-            .identified(id),
-        )?;
+        self.permit
+            .send(
+                HttpMasterCommand::Connected {
+                    chan,
+                    immediate_forward,
+                }
+                .identified(id),
+            )
+            .await?;
         Ok((id, self.permit.clone()))
     }
 

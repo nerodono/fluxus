@@ -40,9 +40,11 @@ pub struct Connection<R, D, W, C> {
     pub local: String,
     pub buffer_size: usize,
 
-    map: FxHashMap<u16, mpsc::UnboundedSender<Command>>,
-    tx: mpsc::UnboundedSender<IdentifiedCommand>,
-    rx: mpsc::UnboundedReceiver<IdentifiedCommand>,
+    map: FxHashMap<u16, mpsc::Sender<Command>>,
+    tx: mpsc::Sender<IdentifiedCommand>,
+    rx: mpsc::Receiver<IdentifiedCommand>,
+
+    channel_capacity: usize,
 }
 
 impl<R, D, W, C> Connection<R, D, W, C>
@@ -67,14 +69,11 @@ where
         flags: PacketFlags,
     ) -> eyre::Result<()> {
         let client_id = self.reader.read_client_id(flags).await?;
-        self.map.remove(&client_id).map_or_else(
-            || {
-                tracing::error!("Failed to remove ID{}", client_id.bold());
-            },
-            |channel| {
-                _ = channel.send(Command::Disconnect);
-            },
-        );
+        if let Some(channel) = self.map.remove(&client_id) {
+            _ = channel.send(Command::Disconnect).await;
+        } else {
+            tracing::error!("Failed to remove ID{}", client_id.bold());
+        }
 
         tracing::info!("Client ID{} is disconnected", client_id.bold());
         Ok(())
@@ -85,7 +84,7 @@ where
         flags: PacketFlags,
     ) -> eyre::Result<()> {
         let client_id = self.reader.read_client_id(flags).await?;
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::channel(self.channel_capacity);
         self.map.insert(client_id, tx);
 
         tracing::info!("Connected client {client_id}");
@@ -122,7 +121,7 @@ where
             .await?;
 
         if let Some(channel) = self.map.get(&client_id) {
-            _ = channel.send(Command::Forward { buffer });
+            _ = channel.send(Command::Forward { buffer }).await;
         }
 
         Ok(())
@@ -197,8 +196,10 @@ impl<R, D, W, C> Connection<R, D, W, C> {
 
         reader: GalaxyReader<R, D>,
         writer: GalaxyWriter<W, C>,
+
+        channel_capacity: usize,
     ) -> Self {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::channel(channel_capacity);
         Self {
             reader,
             writer,
@@ -207,6 +208,8 @@ impl<R, D, W, C> Connection<R, D, W, C> {
             map: HashMap::default(),
             tx,
             rx,
+
+            channel_capacity,
         }
     }
 }

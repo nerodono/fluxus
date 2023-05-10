@@ -64,6 +64,8 @@ pub struct Connection<R, W> {
     buffer: RequestBuffer,
     endpoints: Arc<EndpointCollection>,
     body: Body,
+
+    channel_capacity: NonZeroUsize,
 }
 
 impl<R, W> Connection<R, W>
@@ -89,7 +91,8 @@ where
                                 &self.buffer.cursor_slice()[..buffered],
                             ),
                         }
-                    })?;
+                    })
+                    .await?;
                     self.buffer.cursor += buffered;
                 }
 
@@ -173,7 +176,8 @@ where
                                     self.buffer.take_range(range),
                                 ),
                             }
-                        })?;
+                        })
+                        .await?;
                         self.buffer.cursor += buffered;
                     }
 
@@ -214,7 +218,8 @@ where
                 HttpMasterCommand::Forward {
                     buffer: line.to_owned(),
                 }
-            })?;
+            })
+            .await?;
 
             if line == b"\r\n" {
                 // Here's the body started
@@ -242,12 +247,13 @@ where
                         dest.discovered = true;
                         dest.send(HttpMasterCommand::Forward {
                             buffer: Vec::from(buf),
-                        })?;
+                        })
+                        .await?;
                         continue;
                     }
                 }
 
-                let (tx, rx) = mpsc::unbounded_channel();
+                let (tx, rx) = mpsc::channel(self.channel_capacity.get());
                 let (id, permit) = endpoint
                     .assign_id(
                         tx,
@@ -391,13 +397,12 @@ where
             .await?
             .get();
 
-            Destination::send_if_valid(dest, || {
-                HttpMasterCommand::Forward {
-                    buffer: Vec::from(unsafe {
-                        buffer.data_initialized(cur_chunk)
-                    }),
-                }
-            })?;
+            Destination::send_if_valid(dest, || HttpMasterCommand::Forward {
+                buffer: Vec::from(unsafe {
+                    buffer.data_initialized(cur_chunk)
+                }),
+            })
+            .await?;
 
             size -= cur_chunk;
         }
@@ -436,6 +441,7 @@ impl<R, W> Connection<R, W> {
         buffer_size: usize,
         discovery: HttpDiscoveryMethod,
         endpoints: Arc<EndpointCollection>,
+        channel_capacity: NonZeroUsize,
     ) -> Self {
         Self {
             reader,
@@ -445,6 +451,7 @@ impl<R, W> Connection<R, W> {
             buffer: RequestBuffer::new(buffer_size),
             endpoints,
             body: Body::ContentLength(0),
+            channel_capacity,
         }
     }
 }

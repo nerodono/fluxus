@@ -133,8 +133,13 @@ pub async fn async_main(args: CliArgs) -> eyre::Result<()> {
         }
     };
 
-    let mut connection =
-        Connection::new(local_addr, ping.buffer_read.get(), reader, writer);
+    let mut connection = Connection::new(
+        local_addr,
+        ping.buffer_read.get(),
+        reader,
+        writer,
+        4096,
+    );
     connection.run().await
 }
 
