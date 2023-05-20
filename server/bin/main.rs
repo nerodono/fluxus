@@ -1,136 +1,70 @@
-use std::{
-    fmt::Display,
-    num::NonZeroUsize,
-    path::{
-        Path,
-        PathBuf,
-    },
-    process,
-    sync::Arc,
+use std::path::{
+    Path,
+    PathBuf,
 };
 
 use eyre::Context;
-use neo::{
+use fluxus::{
     config::{
         Config,
-        LogLevel,
+        LoggingConfig,
     },
-    tcp,
+    traits::FromConfig,
 };
 use owo_colors::OwoColorize;
-use tokio::runtime;
-use tracing::Level;
+use tokio::runtime::Builder;
 use tracing_subscriber::FmtSubscriber;
 
-#[derive(Debug, serde::Deserialize)]
-struct EnvParams {
-    /// Custom path for config loading
-    config_path: Option<PathBuf>,
-
-    /// Number of neogrok workers. Defaults to number of
-    /// logical CPUs
-    workers: Option<NonZeroUsize>,
+#[derive(serde::Deserialize)]
+struct Env {
+    config: Option<PathBuf>,
 }
 
-async fn async_main(config: Config) -> eyre::Result<()> {
-    let config = Arc::new(config);
-    tcp::server::run_server(config).await
+fn default_config_path() -> &'static Path {
+    Path::new("config.toml")
+}
+
+fn setup_tracing(config: &LoggingConfig) -> eyre::Result<()> {
+    let Some(level) = Option::from_config(&config.level) else {
+        eprintln!("{} logging was disabled in the configuration file", "!!".bold().red());
+        return Ok(());
+    };
+
+    let subscriber = FmtSubscriber::builder()
+        .compact()
+        .without_time()
+        .with_max_level(level)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber)
+        .wrap_err("failed to set default tracing subscriber")?;
+
+    Ok(())
 }
 
 fn main() -> eyre::Result<()> {
-    let params: EnvParams = match envy::prefixed("NEOGROK_").from_env() {
-        Ok(p) => p,
-        Err(e) => die("Failed to parse environment", e),
-    };
-    let config = load_config(&params.config_path);
-    let runtime = create_runtime(params.workers)?;
-
-    setup_tracing(&config)?;
-
-    runtime.block_on(async_main(config))
-}
-
-fn die(prelude: &str, e: impl Display) -> ! {
-    eprintln!("{} {}: {e}", "!!".red().bold(), prelude.bold());
-    process::exit(1)
-}
-
-fn setup_tracing(config: &Config) -> eyre::Result<()> {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(match config.logging.level {
-            LogLevel::Info => Level::INFO,
-            LogLevel::Disable => {
-                // FIXME: Implement disable
-                eprintln!(
-                    "{} {}",
-                    "!!".red().bold(),
-                    "Currently `disable` level is not supported, falling \
-                     back to `info`"
-                        .bold()
-                );
-
-                Level::INFO
-            }
-            LogLevel::Debug => Level::DEBUG,
-            LogLevel::Error => Level::ERROR,
-        })
-        .without_time()
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber)
-        .wrap_err("setting default subscriber failed")
-}
-
-fn create_runtime(
-    workers: Option<NonZeroUsize>,
-) -> eyre::Result<runtime::Runtime> {
-    match workers
-        .map(NonZeroUsize::get)
-        .unwrap_or(num_cpus::get())
-    {
-        0 | 1 => runtime::Builder::new_current_thread(),
+    let env: Env = envy::prefixed("FLUXUS_")
+        .from_env()
+        .wrap_err("failed to parse environment variables")?;
+    let config_path = env
+        .config
+        .unwrap_or_else(|| default_config_path().to_owned());
+    let config = Config::load_config(config_path)?;
+    let rt = match config.runtime.workers.get() {
+        1 | 0 => Builder::new_current_thread(),
         n => {
-            let mut b = runtime::Builder::new_multi_thread();
+            let mut b = Builder::new_multi_thread();
             b.worker_threads(n);
             b
         }
     }
     .enable_io()
     .build()
-    .wrap_err("Failed to create tokio runtime")
+    .wrap_err("failed to create tokio async runtime")?;
+
+    setup_tracing(&config.logging)?;
+
+    rt.block_on(async_entrypoint::async_main(config.into()));
+    Ok(())
 }
 
-fn load_config(path: &Option<PathBuf>) -> Config {
-    let default_paths: &[&Path] = &[
-        Path::new("neogrok.toml"),
-        Path::new("assets/config.toml"),
-        Path::new("config.toml"),
-        Path::new("/etc/neogrok.toml"),
-        Path::new("/etc/neogrok/config.toml"),
-    ];
-
-    match path {
-        Some(ref buf) => match Config::try_load(buf) {
-            Ok(c) => c,
-            Err(e) => die("Failed to parse supplied config file", e),
-        },
-
-        None => match Config::try_load_paths(default_paths) {
-            Ok(c) => c,
-            Err(errors) => {
-                eprintln!(
-                    "{} {}",
-                    "!!".red().bold(),
-                    "Failed to locate and parse config file:".bold()
-                );
-                for (&path, error) in
-                    default_paths.iter().zip(errors.into_iter())
-                {
-                    eprintln!("  - {}: {error}", path.display().green());
-                }
-
-                process::exit(1)
-            }
-        },
-    }
-}
+mod async_entrypoint;

@@ -3,38 +3,60 @@ name = "server"
 version = "0.1.0"
 edition = "2021"
 
+
+[features]
+default = ["http", "api", "tcp", "dhall"]
+http = []
+api = []
+tcp = []
+dhall = ["dep:serde_dhall"]
+
 [[bin]]
-name = "neogrokd"
+name = "fluxusd"
 path = "bin/main.rs"
 
 [lib]
-name = "neo"
+name = "fluxus"
 path = "src/lib.rs"
 
-[dependencies.idpool]
-path = "../crates/idpool"
-version = "0.1.0"
+[dependencies.serde_dhall]
+version = "0.12.1"
+optional = true
 
-[dependencies.galaxy-network]
-path = "../crates/galaxy-network"
+[dependencies.toml]
+workspace = true
+
+[dependencies.flux-tcp]
 version = "0.1.0"
+path = "../crates/flux-tcp"
+
+[dependencies.flux-compression]
+version = "0.1.0"
+path = "../crates/flux-compression"
+
+[dependencies.url]
+features = ["serde"]
+version = "2.3"
 
 [dependencies]
-envy.workspace = true
-integral-enum.workspace = true
-serde.workspace = true
-thiserror.workspace = true
-owo-colors.workspace = true
-eyre.workspace = true
-
-tokio.workspace = true
+rustc-hash.workspace = true
 
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
-toml = "0.7.3"
-num_cpus.workspace = true
-derive_more = { version = "0.99.17", default-features = false, features = [
-    "display",
+envy.workspace = true
+tokio.workspace = true
+owo-colors.workspace = true
+
+integral-enum.workspace = true
+cocoa-purity.workspace = true
+eyre.workspace = true
+cfg-if.workspace = true
+thiserror.workspace = true
+
+serde.workspace = true
+futures = { version = "0.3.28", default-features = false, features = [
+    "async-await",
+    "std",
 ] }
-rustc-hash.workspace = true
+heapless = { version = "0.7.16", default-features = false }

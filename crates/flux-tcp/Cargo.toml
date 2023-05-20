@@ -1,0 +1,21 @@
+[package]
+name = "flux-tcp"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["serde"]
+serde = ["dep:serde"]
+
+[dependencies.serde]
+optional = true
+workspace = true
+
+[dependencies.tokio]
+workspace = true
+features = ["net"]
+
+[dependencies]
+thiserror.workspace = true
+bitflags = "2.3.1"
+integral-enum.workspace = true

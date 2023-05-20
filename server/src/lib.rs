@@ -1,7 +1,14 @@
-pub mod config;
-pub mod tcp;
-
 pub mod error;
-pub mod logic;
+pub mod traits;
 
-mod decl;
+pub mod http;
+
+pub mod communication;
+pub mod server;
+
+pub mod data;
+pub mod utils;
+
+pub mod config;
+
+pub mod decl;

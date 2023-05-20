@@ -1,33 +1,41 @@
 [workspace]
-members = ["client", "server", "crates/*"]
+members = ["crates/*", "server", "client"]
 
 [profile.release]
 opt-level = 3
 lto = true
 
-[profile.dev]
-opt-level = 1
-lto = false
-
-[profile.dev.package."*"]
-opt-level = 3
-
-[workspace.dependencies.tokio]
-features = ["rt", "rt-multi-thread", "net", "sync", "io-util", "macros"]
-version = "1.27"
-
 [workspace.dependencies.serde]
-version = "1.0.159"
+version = "1.0"
 features = ["derive"]
 
+[workspace.dependencies.tokio]
+version = "1.28"
+features = [
+    "net",
+    "io-util",
+    "rt",
+    "rt-multi-thread",
+    "parking_lot",
+    "sync",
+    "macros",
+]
+
 [workspace.dependencies]
-integral-enum = "3.0.0"
+rstest = "0.17.0"
+integral-enum = "3.0.1"
+cocoa-purity = "0.1.1"
 thiserror = "1.0.40"
-owo-colors = "3.5.0"
-envy = "0.4.2"
-num_cpus = "1.15.0"
-eyre = "0.6.8"
+cfg-if = "1.0.0"
 
 tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
+tracing-subscriber = "0.3.17"
+
+owo-colors = "3.5.0"
+
+envy = "0.4.2"
+eyre = "0.6.8"
+
 rustc-hash = "1.1.0"
+ahash = "0.8.3"
+toml = "0.7.4"

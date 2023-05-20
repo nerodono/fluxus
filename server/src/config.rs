@@ -1,6 +1,5 @@
 use std::{
     fs,
-    io,
     net::SocketAddr,
     num::{
         NonZeroU16,
@@ -10,140 +9,169 @@ use std::{
     path::Path,
 };
 
-use galaxy_network::raw::{
-    CompressionAlgorithm,
-    Rights,
+use cfg_if::cfg_if;
+use eyre::Context;
+use flux_tcp::raw::CompressionAlgorithm;
+use tracing::Level;
+use url::Url;
+
+use crate::{
+    decl::config,
+    traits::FromConfig,
 };
-use thiserror::Error;
 
-use crate::decl::config;
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("Failed to read config file: {0}")]
-    Io(#[from] io::Error),
-
-    #[error("Failed to parse TOML file: {0}")]
-    Toml(#[from] toml::de::Error),
+const fn def_true() -> bool {
+    true
 }
 
-pub type ConfigResult<T> = Result<T, Error>;
-
+// Main container
 config! {
-    enum AuthorizationBackend {
-        Password {
-            password: String,
-        },
-        Database {
-            url: String,
-        },
-    }
-
-    int LogLevel<u8> { Disable, Info, Error, Debug }
-
-    //
-
-    struct CanConfig {
-        create: bool,
-        select_port: bool,
-    }
-
-    struct HttpRightsConfig {
-        create: bool,
-    }
-
-    struct ProtocolRightsConfig {
-        tcp: CanConfig,
-        udp: CanConfig,
-
-        http: HttpRightsConfig,
-    }
-
-    struct RightsConfig {
-        on_connect: ProtocolRightsConfig,
-        on_password_auth: ProtocolRightsConfig,
-    }
-
-    //
-
-    struct CompressionConfig {
-        algorithm: CompressionAlgorithm,
-        level: NonZeroU8,
-        threshold: Option<NonZeroU16>,
-    }
-
-    struct BufferingConfig {
-        read: NonZeroUsize,
-    }
-
-    struct LoggingConfig {
-        level: LogLevel,
-    }
-
-    struct ServerConfig {
-        listen: SocketAddr,
-        name: String,
-        buffering: BufferingConfig,
-    }
-
     struct Config {
         server: ServerConfig,
+        buffering: BufferingConfig,
+
         compression: CompressionConfig,
-        authorization: AuthorizationBackend,
+        database: Option<DatabaseConfig>,
+
         rights: RightsConfig,
+        runtime: RuntimeConfig,
+
         logging: LoggingConfig,
     }
 }
 
-impl ProtocolRightsConfig {
-    pub fn to_bits(&self) -> Rights {
-        let mut rights = Rights::empty();
+// Logging
+config! {
+    int<u8> LogLevel { Disable, Debug, Error, Info }
+    struct LoggingConfig {
+        level: LogLevel,
+    }
+}
 
-        if self.tcp.create {
-            rights |= Rights::CAN_CREATE_TCP;
-        }
-        if self.tcp.select_port {
-            rights |= Rights::CAN_SELECT_TCP_PORT;
-        }
+// Runtime
 
-        if self.udp.create {
-            rights |= Rights::CAN_CREATE_UDP;
-        }
-        if self.udp.select_port {
-            rights |= Rights::CAN_SELECT_UDP_PORT;
-        }
+config! {
+    struct RuntimeConfig {
+        workers: NonZeroUsize,
+    }
+}
 
-        if self.http.create {
-            rights |= Rights::CAN_CREATE_HTTP;
-        }
+// Server
+config! {
+    struct ServerConfig {
+        name: String,
+        listen: SocketAddr,
 
-        rights
+        backlog: NonZeroUsize,
+        max_uncompressed_size: NonZeroUsize,
+        universal_password: Option<String>,
+    }
+}
+
+// Buffering
+config! {
+    struct ReadBufferingScope {
+        flow: NonZeroUsize,
+        control: NonZeroUsize,
+        per_slave: NonZeroUsize,
+    }
+
+    struct ChannelsBufferingScope {
+        slave: NonZeroUsize,
+        control: NonZeroUsize,
+        flow: NonZeroUsize,
+    }
+
+    struct BufferingConfig {
+        read: ReadBufferingScope,
+        channels: ChannelsBufferingScope,
+    }
+}
+
+// Compression
+config! {
+    #[derive(Clone)]
+    struct CompressionScope {
+        level: NonZeroU8,
+        algorithm: CompressionAlgorithm,
+        threshold: NonZeroU16,
+
+        #[serde(default = "def_true")]
+        trace: bool,
+    }
+
+    struct CompressionConfig {
+        tcp: Option<CompressionScope>,
+        http: Option<CompressionScope>,
+    }
+}
+
+// Database
+
+config! {
+    struct DatabaseConfig {
+        url: Url,
+    }
+}
+
+// Rights
+
+config! {
+    struct HttpRightsScope {
+        create: bool,
+        custom_host: bool,
+    }
+
+    struct TcpRightsScope {
+        create: bool,
+        select_port: bool
+    }
+
+    struct RightsScope {
+        tcp: TcpRightsScope,
+        http: HttpRightsScope
+    }
+
+    struct RightsConfig {
+        on_connect: RightsScope,
+        on_universal_password: RightsScope,
+    }
+}
+
+impl FromConfig<LogLevel> for Option<Level> {
+    fn from_config(entry: &LogLevel) -> Self {
+        Some(match *entry {
+            LogLevel::Debug => Level::DEBUG,
+            LogLevel::Disable => return None,
+            LogLevel::Error => Level::ERROR,
+            LogLevel::Info => Level::INFO,
+        })
     }
 }
 
 impl Config {
-    /// Tries to load config from supplied paths.
-    /// On success [`Config`] returned, otherwise array of
-    /// errors returned.
-    pub fn try_load_paths<P: AsRef<Path>>(
-        paths: &[P],
-    ) -> Result<Self, Vec<Error>> {
-        let mut errors = Vec::new();
-        for path in paths.into_iter().map(AsRef::as_ref) {
-            match Self::try_load(path) {
-                Ok(c) => return Ok(c),
-                Err(e) => {
-                    errors.push(e);
+    pub fn load_config(path: impl AsRef<Path>) -> eyre::Result<Self> {
+        cfg_if! {
+            if #[cfg(feature = "dhall")] {
+                let path = path.as_ref();
+                let contents = fs::read_to_string(path)?;
+                let is_dhall = path.extension().map_or(false, |ext| ext == "dhall");
+
+                if is_dhall {
+                    serde_dhall::from_str(&contents)
+                               .parse()
+                               .wrap_err("failed to parse dhall config")
+                } else {
+                    toml::from_str(&contents)
+                        .wrap_err("failed to parse TOML")
                 }
+            } else {
+                let contents = fs::read_to_string(path)
+                                 .wrap_err("failed to read TOML config")?;
+
+                toml::from_str(&contents)
+                    .wrap_err("failed to parse TOML")
             }
         }
-
-        Err(errors)
-    }
-
-    /// Tries to load config from supplied path.
-    pub fn try_load(from: impl AsRef<Path>) -> ConfigResult<Self> {
-        let content = fs::read_to_string(from)?;
-        toml::from_str(&content).map_err(Into::into)
     }
 }

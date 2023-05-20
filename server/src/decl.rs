@@ -1,42 +1,48 @@
 macro_rules! config {
-    () => {};
     (
         $(#[$outer_meta:meta])*
         struct $name:ident {
             $(
-                $(#[$inner_meta:meta])*
-                $field:ident : $field_ty:ty
+                $(#[$field_meta:meta])*
+                $field_name:ident : $field_type:ty
             ),*
             $(,)?
         }
 
         $($tail:tt)*
     ) => {
+        #[derive(
+            Debug,
+            serde::Serialize,
+            serde::Deserialize,
+        )]
         $(#[$outer_meta])*
-        #[derive(Debug, serde::Serialize, serde::Deserialize)]
         pub struct $name {
             $(
-                $(#[$inner_meta])*
-                pub $field : $field_ty
+                $(#[$field_meta])*
+                pub $field_name : $field_type
             ),*
         }
 
         $crate::decl::config! { $($tail)* }
     };
-
     (
         $(#[$outer_meta:meta])*
         enum $name:ident {
-            $($content:tt)*
+            $($body:tt)*
         }
 
         $($tail:tt)*
     ) => {
-        #[derive(Debug, serde::Serialize, serde::Deserialize)]
-        #[serde(rename_all = "snake_case")]
+        #[derive(
+            Debug,
+            serde::Serialize,
+            serde::Deserialize,
+        )]
         $(#[$outer_meta])*
+        #[serde(rename_all = "snake_case")]
         pub enum $name {
-            $($content)*
+            $($body)*
         }
 
         $crate::decl::config! { $($tail)* }
@@ -44,28 +50,33 @@ macro_rules! config {
 
     (
         $(#[$outer_meta:meta])*
-        int $name:ident<$integral:ident> {
+        int<$integral_type:ident> $name:ident {
             $(
-                $(#[$inner_meta:meta])*
-                $variant:ident
+                $(#[$field_meta:meta])*
+                $field_name:ident
             ),*
             $(,)?
         }
         $($tail:tt)*
     ) => {
-        #[integral_enum::integral_enum($integral)]
-        #[derive(serde::Serialize, serde::Deserialize)]
-        #[serde(rename_all = "snake_case")]
+        #[derive(
+            serde::Serialize,
+            serde::Deserialize
+        )]
         $(#[$outer_meta])*
+        #[serde(rename_all = "snake_case")]
+        #[integral_enum::integral_enum($integral_type)]
         pub enum $name {
             $(
-                $(#[$inner_meta])*
-                $variant
+                $(#[$field_meta])*
+                $field_name
             ),*
         }
 
         $crate::decl::config! { $($tail)* }
     };
+
+    () => {};
 }
 
 pub(crate) use config;

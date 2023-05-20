@@ -1,0 +1,56 @@
+[runtime]
+workers = 4
+
+[logging]
+level = "info"
+
+[server]
+name = "fluxus/1.0"
+listen = "0.0.0.0:6567"
+
+max_uncompressed_size = 1048576
+
+# How many connections can be held in the backlog
+# before fluxus client connects to the flow protocol
+# excess connections are dropped without notification
+backlog = 4096
+
+universal_password = "nerodono"
+
+[buffering]
+read.flow = 4096
+read.control = 256
+read.per_slave = 4096
+
+channels.slave = 256
+channels.flow = 256
+channels.control = 32
+
+[compression.tcp]
+algorithm = "zstd"
+level = 10
+threshold = 64
+trace = true
+
+[compression.http]
+algorithm = "zstd"
+level = 20
+threshold = 512
+trace = true
+
+[rights.on_connect]
+http.create = false
+http.custom_host = false
+
+tcp.create = false
+tcp.select_port = false
+
+[rights.on_universal_password]
+http.create = true
+http.custom_host = true
+
+tcp.create = true
+tcp.select_port = true
+
+# [database]
+# url = "postgres://123:123"

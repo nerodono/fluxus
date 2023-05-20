@@ -1,0 +1,11 @@
+[package]
+name = "flux-compression"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+enum_dispatch = "0.3.11"
+zstd-sys = "2.0.8"
+
+[dev-dependencies]
+rstest.workspace = true
