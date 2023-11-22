@@ -1,33 +1,19 @@
+[workspace.package]
+authors = ["nerodono"]
+edition = "2021"
+homepage = "https://github.com/nerodono/fluxus"
+license = "MIT"
+repository = "https://github.com/nerodono/fluxus"
+workspace.resolver = "2"
+
 [workspace]
-members = ["client", "server", "crates/*"]
-
-[profile.release]
-opt-level = 3
-lto = true
-
-[profile.dev]
-opt-level = 1
-lto = false
-
-[profile.dev.package."*"]
-opt-level = 3
+members = ["packages/*", "crates/*"]
 
 [workspace.dependencies.tokio]
-features = ["rt", "rt-multi-thread", "net", "sync", "io-util", "macros"]
-version = "1.27"
-
-[workspace.dependencies.serde]
-version = "1.0.159"
-features = ["derive"]
+version = "1.34.0"
+default-features = false
+features = ["net", "io-util", "rt", "rt-multi-thread", "sync"]
 
 [workspace.dependencies]
-integral-enum = "3.0.0"
-thiserror = "1.0.40"
-owo-colors = "3.5.0"
-envy = "0.4.2"
-num_cpus = "1.15.0"
-eyre = "0.6.8"
-
-tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
-rustc-hash = "1.1.0"
+thiserror = "1.0.50"
+integral-enum = "3.0.1"

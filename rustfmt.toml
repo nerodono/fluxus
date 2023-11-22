@@ -10,7 +10,7 @@ imports_indent = "Block"
 imports_granularity = "Crate"
 group_imports = "StdExternalCrate"
 
-max_width = 75
+max_width = 85
 condense_wildcard_suffixes = true
 
 newline_style = "Unix"

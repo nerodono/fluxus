@@ -1,0 +1,11 @@
+[package]
+name = "server"
+version = "0.9.0"
+edition = "2021"
+
+[features]
+default = []
+http = []
+tcp = []
+
+[dependencies]

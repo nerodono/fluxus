@@ -1,0 +1,19 @@
+[package]
+name = "tcp-flux"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies.tokio]
+workspace = true
+default-features = false
+features = ["net", "io-util"]
+
+[dependencies]
+thiserror.workspace = true
+integral-enum.workspace = true
+
+bitflags = "2.4.1"
