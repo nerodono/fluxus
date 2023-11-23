@@ -4,9 +4,9 @@ edition = "2021"
 homepage = "https://github.com/nerodono/fluxus"
 license = "MIT"
 repository = "https://github.com/nerodono/fluxus"
-workspace.resolver = "2"
 
 [workspace]
+resolver = "2"
 members = ["packages/*", "crates/*"]
 
 [workspace.dependencies.tokio]
@@ -15,5 +15,12 @@ default-features = false
 features = ["net", "io-util", "rt", "rt-multi-thread", "sync"]
 
 [workspace.dependencies]
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+
+serde = { version = "1.0.193", features = ["derive"] }
+toml = "0.8.8"
+
+color-eyre = "0.6.2"
 thiserror = "1.0.50"
 integral-enum = "3.0.1"

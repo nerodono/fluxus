@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use super::client::MasterClientReader;
+use super::{
+    client::MasterClientReader,
+    server::MasterServerReader,
+};
 use crate::{
     connection::traits::RawRead,
     error::PktBaseReadError,
@@ -28,6 +31,14 @@ impl ReaderSide for Client {
 
     fn create<R: RawRead>(reader: &mut R) -> Self::Target<'_, R> {
         MasterClientReader { reader }
+    }
+}
+
+impl ReaderSide for Server {
+    type Target<'a, R: 'a> = MasterServerReader<'a, R>;
+
+    fn create<R: RawRead>(reader: &mut R) -> Self::Target<'_, R> {
+        MasterServerReader { reader }
     }
 }
 

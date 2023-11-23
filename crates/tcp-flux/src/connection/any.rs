@@ -17,6 +17,6 @@ pub struct AnyConnection {
 
 #[rustfmt::skip]
 impl ConnectionType {
-    pub const FLOW_INT: u8   = 0;
-    pub const MASTER_INT: u8 = 1;
+    pub const MASTER_INT: u8 = b'm';
+    pub const FLOW_INT: u8   = b's';
 }

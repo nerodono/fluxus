@@ -3,6 +3,18 @@ use std::io;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+pub enum ReadError {
+    #[error("I/O error: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("reached end of stream")]
+    EndOfStream,
+
+    #[error("got invalid sequence of UTF-8 characters")]
+    InvalidString,
+}
+
+#[derive(Debug, Error)]
 pub enum PktBaseReadError {
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),

@@ -21,7 +21,11 @@ pub struct Listener {
 }
 
 impl Listener {
-    pub async fn next_connection(&mut self) -> Result<AnyConnection, AcceptError> {
+    pub const fn inner_ref(&self) -> &TcpListener {
+        &self.handle
+    }
+
+    pub async fn next_connection(&self) -> Result<AnyConnection, AcceptError> {
         let (mut socket, address) = self.handle.accept().await?;
         let prot_int = socket.read_u8().await?;
 
