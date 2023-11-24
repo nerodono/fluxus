@@ -11,7 +11,6 @@ use tcp_flux::connection::master::{
     writer::server::MasterServerWriter,
 };
 
-use super::state::SessionState;
 use crate::{
     config::root::Config,
     user::User,
@@ -22,17 +21,15 @@ pub struct Sides<R, W> {
     pub writer: MasterServerWriter<W>,
 }
 
-pub struct Connection {
-    pub(super) state: SessionState,
+pub struct ConnectionState {
+    pub(super) user: User,
     pub(super) config: Arc<Config>,
 }
 
-impl Connection {
+impl ConnectionState {
     pub fn new(config: Arc<Config>, address: SocketAddr) -> Self {
         Self {
-            state: SessionState {
-                user: User::new(address),
-            },
+            user: User::new(address),
             config,
         }
     }

@@ -9,7 +9,7 @@ use tcp_flux::connection::{
     },
 };
 
-use super::connection::Connection;
+use super::connection::ConnectionState;
 use crate::protocols::tcp_flux::error::TcpFluxResult;
 
 /// Indivisible scope of connection: actual packet handling
@@ -24,7 +24,7 @@ use crate::protocols::tcp_flux::error::TcpFluxResult;
 /// * Connection here is an actual connection, not the
 ///   **state of connection**
 pub struct Atom<'a, R, W> {
-    connection: &'a mut Connection,
+    state: &'a mut ConnectionState,
 
     writer: &'a mut MasterServerWriter<W>,
     reader: MasterServerReader<'a, R>,
@@ -46,12 +46,12 @@ impl<'a, R: RawRead, W: RawWrite> Atom<'a, R, W> {
 
 impl<'a, R, W> Atom<'a, R, W> {
     pub fn new(
-        connection: &'a mut Connection,
+        state: &'a mut ConnectionState,
         reader: MasterServerReader<'a, R>,
         writer: &'a mut MasterServerWriter<W>,
     ) -> Self {
         Self {
-            connection,
+            state,
             reader,
             writer,
         }

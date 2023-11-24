@@ -20,7 +20,7 @@ use crate::{
     config::root::Config,
     protocols::tcp_flux::master::{
         connection::{
-            Connection,
+            ConnectionState,
             Sides,
         },
         router::Router,
@@ -51,10 +51,10 @@ pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
 
             ConnectionType::Master => {
                 tracing::info!("{} connected as the master", connection.address);
-                let connection =
-                    Connection::new(Arc::clone(&config), connection.address);
+                let state =
+                    ConnectionState::new(Arc::clone(&config), connection.address);
                 Router::new(
-                    connection,
+                    state,
                     Sides {
                         reader: MasterReader::new(reader),
                         writer: MasterServerWriter::new(writer),
