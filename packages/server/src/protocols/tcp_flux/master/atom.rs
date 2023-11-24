@@ -12,6 +12,17 @@ use tcp_flux::connection::{
 use super::connection::Connection;
 use crate::protocols::tcp_flux::error::TcpFluxResult;
 
+/// Indivisible scope of connection: actual packet handling
+///
+/// ```text
+///  Connection*
+/// ------------>
+/// |----|------|
+///  ^^^^ ^^^^^^
+///  Atom  Atom
+/// ```
+/// * Connection here is an actual connection, not the
+///   **state of connection**
 pub struct Atom<'a, R, W> {
     connection: &'a mut Connection,
 
