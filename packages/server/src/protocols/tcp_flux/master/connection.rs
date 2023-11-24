@@ -21,13 +21,13 @@ pub struct Sides<R, W> {
     pub writer: MasterServerWriter<W>,
 }
 
-pub struct ConnectionState<'a> {
+pub struct ConnectionState<'cfg> {
     pub(super) user: User,
-    pub(super) config: &'a Arc<Config>,
+    pub(super) config: &'cfg Arc<Config>,
 }
 
-impl<'a> ConnectionState<'a> {
-    pub fn new(config: &'a Arc<Config>, address: SocketAddr) -> Self {
+impl<'cfg> ConnectionState<'cfg> {
+    pub fn new(config: &'cfg Arc<Config>, address: SocketAddr) -> Self {
         Self {
             user: User::new(address),
             config,

@@ -21,12 +21,12 @@ use crate::{
     },
 };
 
-pub struct Router<'a, R, W> {
+pub struct Router<'cfg, R, W> {
     sides: Sides<R, W>,
-    connection_state: ConnectionState<'a>,
+    connection_state: ConnectionState<'cfg>,
 }
 
-impl<'a, R: RawRead, W: RawWrite> Router<'a, R, W> {
+impl<'cfg, R: RawRead, W: RawWrite> Router<'cfg, R, W> {
     pub async fn serve(mut self) -> TcpFluxResult<()> {
         use PktType as P;
         loop {
@@ -70,9 +70,9 @@ impl<'a, R: RawRead, W: RawWrite> Router<'a, R, W> {
     }
 }
 
-impl<'a, R, W> Router<'a, R, W> {
+impl<'cfg, R, W> Router<'cfg, R, W> {
     pub const fn new(
-        connection_state: ConnectionState<'a>,
+        connection_state: ConnectionState<'cfg>,
         sides: Sides<R, W>,
     ) -> Self {
         Self {
