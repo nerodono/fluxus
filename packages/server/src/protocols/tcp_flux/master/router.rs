@@ -21,12 +21,12 @@ use crate::{
     },
 };
 
-pub struct Router<R, W> {
+pub struct Router<'a, R, W> {
     sides: Sides<R, W>,
-    connection_state: ConnectionState,
+    connection_state: ConnectionState<'a>,
 }
 
-impl<R: RawRead, W: RawWrite> Router<R, W> {
+impl<'a, R: RawRead, W: RawWrite> Router<'a, R, W> {
     pub async fn serve(mut self) -> TcpFluxResult<()> {
         use PktType as P;
         loop {
@@ -48,10 +48,18 @@ impl<R: RawRead, W: RawWrite> Router<R, W> {
             if let Err(e) = result {
                 match e {
                     TcpFluxError::NonCritical(error) => {
+                        tracing::error!(
+                            "{} non-critical error: {error}",
+                            self.connection_state.user
+                        );
                         todo!();
                     }
 
                     TcpFluxError::Critical(crit) => {
+                        tracing::error!(
+                            "{} critical error: {crit}",
+                            self.connection_state.user
+                        );
                         todo!();
                     }
 
@@ -62,8 +70,11 @@ impl<R: RawRead, W: RawWrite> Router<R, W> {
     }
 }
 
-impl<R, W> Router<R, W> {
-    pub const fn new(connection_state: ConnectionState, sides: Sides<R, W>) -> Self {
+impl<'a, R, W> Router<'a, R, W> {
+    pub const fn new(
+        connection_state: ConnectionState<'a>,
+        sides: Sides<R, W>,
+    ) -> Self {
         Self {
             connection_state,
             sides,

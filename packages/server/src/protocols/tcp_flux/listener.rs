@@ -51,8 +51,7 @@ pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
 
             ConnectionType::Master => {
                 tracing::info!("{} connected as the master", connection.address);
-                let state =
-                    ConnectionState::new(Arc::clone(&config), connection.address);
+                let state = ConnectionState::new(&config, connection.address);
                 Router::new(
                     state,
                     Sides {

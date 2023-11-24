@@ -23,14 +23,14 @@ use crate::protocols::tcp_flux::error::TcpFluxResult;
 /// ```
 /// * Connection here is an actual connection, not the
 ///   **state of connection**
-pub struct Atom<'a, R, W> {
-    state: &'a mut ConnectionState,
+pub struct Atom<'r, 'cfg, R, W> {
+    state: &'r mut ConnectionState<'cfg>,
 
-    writer: &'a mut MasterServerWriter<W>,
-    reader: MasterServerReader<'a, R>,
+    writer: &'r mut MasterServerWriter<W>,
+    reader: MasterServerReader<'r, R>,
 }
 
-impl<'a, R: RawRead, W: RawWrite> Atom<'a, R, W> {
+impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
     pub async fn authenticate(&mut self) -> TcpFluxResult<()> {
         todo!()
     }
@@ -44,11 +44,11 @@ impl<'a, R: RawRead, W: RawWrite> Atom<'a, R, W> {
     }
 }
 
-impl<'a, R, W> Atom<'a, R, W> {
+impl<'r, 'cfg, R, W> Atom<'r, 'cfg, R, W> {
     pub fn new(
-        state: &'a mut ConnectionState,
-        reader: MasterServerReader<'a, R>,
-        writer: &'a mut MasterServerWriter<W>,
+        state: &'r mut ConnectionState<'cfg>,
+        reader: MasterServerReader<'r, R>,
+        writer: &'r mut MasterServerWriter<W>,
     ) -> Self {
         Self {
             state,
