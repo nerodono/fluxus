@@ -20,6 +20,7 @@ tracing-subscriber = "0.3.18"
 
 serde = { version = "1.0.193", features = ["derive"] }
 toml = "0.8.8"
+owo-colors = "3.5.0"
 
 color-eyre = "0.6.2"
 thiserror = "1.0.50"

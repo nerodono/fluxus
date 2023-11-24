@@ -16,7 +16,7 @@ pub enum PktType {
     Error        = 0x00,
     ReqInfo      = 0x01,
     Connected    = 0x02,
-    Disconnected = 0x03,
+    Disconnect   = 0x03,
 
     Authenticate = 0x04,
 }

@@ -5,12 +5,27 @@ use color_eyre::eyre::{
     Context,
 };
 use tcp_flux::{
-    connection::any::ConnectionType,
+    connection::{
+        any::ConnectionType,
+        master::{
+            reader::common::MasterReader,
+            writer::server::MasterServerWriter,
+        },
+    },
     listener::Listener,
 };
 use tokio::net::TcpListener;
 
-use crate::config::root::Config;
+use crate::{
+    config::root::Config,
+    protocols::tcp_flux::master::{
+        connection::{
+            Connection,
+            Sides,
+        },
+        router::Router,
+    },
+};
 
 fn grab_port_from(listener: &TcpListener) -> eyre::Result<u16> {
     listener
@@ -26,7 +41,9 @@ pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
     tracing::info!("tcpflux is listening on :{bound_port}");
     loop {
         let connection = listener.next_connection().await?;
-        match connection.type_ {
+        let (reader, writer) = connection.socket.into_split();
+
+        let execution_result = match connection.type_ {
             ConnectionType::Flow { id } => {
                 tracing::info!("{} connected to the flow {id}", connection.address);
                 todo!()
@@ -34,8 +51,22 @@ pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
 
             ConnectionType::Master => {
                 tracing::info!("{} connected as the master", connection.address);
-                todo!()
+                let connection =
+                    Connection::new(Arc::clone(&config), connection.address);
+                Router::new(
+                    connection,
+                    Sides {
+                        reader: MasterReader::new(reader),
+                        writer: MasterServerWriter::new(writer),
+                    },
+                )
+                .serve()
+                .await
             }
+        };
+
+        if let Err(e) = execution_result {
+            tracing::error!("{} disconnected ({e})", connection.address);
         }
     }
 }

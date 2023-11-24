@@ -35,11 +35,13 @@ envy = "0.4.2"
 num_cpus = "1.16.0"
 toml = "0.8.8"
 
+thiserror.workspace = true
 tracing-subscriber.workspace = true
 integral-enum.workspace = true
 tracing.workspace = true
 color-eyre.workspace = true
 serde.workspace = true
+owo-colors.workspace = true
 futures-util = { version = "0.3.29", default-features = false, features = [
     "std",
 ] }
