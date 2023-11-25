@@ -15,4 +15,7 @@ pub enum ErrorCode {
 
     #[error("got unexpected packet")]
     UnexpectedPacket = 0x03,
+
+    #[error("internal server error")]
+    InternalError = 0x04,
 }

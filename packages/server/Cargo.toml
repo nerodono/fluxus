@@ -23,7 +23,7 @@ tcpflux = ["dep:tcp-flux"]
 
 [dependencies.tokio]
 workspace = true
-features = ["rt", "rt-multi-thread", "net", "sync", "io-util"]
+features = ["rt", "rt-multi-thread", "net", "sync", "io-util", "macros"]
 
 [dependencies.tcp-flux]
 workspace = true

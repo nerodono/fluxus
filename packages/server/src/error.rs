@@ -16,4 +16,7 @@ pub enum NonCriticalError {
 pub enum CriticalError {
     #[error("unexpected packet for the client-side")]
     UnexpectedPacket,
+
+    #[error("master channel closed (this is unexpected)")]
+    ChannelClosed,
 }

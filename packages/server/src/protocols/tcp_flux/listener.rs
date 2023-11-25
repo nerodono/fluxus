@@ -12,15 +12,10 @@ use tcp_flux::{
     listener::Listener,
 };
 
+use super::master::network::connection::ConnectionState;
 use crate::{
     config::root::Config,
-    protocols::tcp_flux::master::{
-        connection::{
-            ConnectionState,
-            Sides,
-        },
-        router::route_packets,
-    },
+    protocols::tcp_flux::master::handler::handle_connection,
 };
 
 pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
@@ -41,11 +36,9 @@ pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
             ConnectionType::Master => {
                 tracing::info!("{} connected as the master", connection.address);
                 let state = ConnectionState::new(&config, connection.address);
-                route_packets(
-                    Sides {
-                        reader: MasterReader::new(reader),
-                        writer: MasterServerWriter::new(writer),
-                    },
+                handle_connection(
+                    MasterReader::new(reader),
+                    MasterServerWriter::new(writer),
                     state,
                 )
                 .await

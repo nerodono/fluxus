@@ -2,7 +2,8 @@ mod error;
 mod listener;
 
 mod flow;
-mod layered;
 mod master;
+
+mod events;
 
 pub use listener::run;
