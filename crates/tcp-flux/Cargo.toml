@@ -13,7 +13,8 @@ default-features = false
 features = ["net", "io-util"]
 
 [dependencies]
+flux-common.workspace = true
+
 thiserror.workspace = true
 integral-enum.workspace = true
-
-bitflags = "2.4.1"
+bitflags.workspace = true

@@ -14,6 +14,8 @@ use crate::{
     error::CriticalError,
     protocols::tcp_flux::{
         error::{
+            convert_critical,
+            convert_non_critical,
             TcpFluxError,
             TcpFluxResult,
         },
@@ -32,13 +34,16 @@ where
     use PktType as P;
     loop {
         let (pkt, reader) = net.reader.next_packet().await?;
-        let mut atom = Atom::new(&mut state, reader, &mut net.writer);
+        let mut atom = Atom::new(&mut state, reader, &mut net.writer, pkt.flags);
 
         let result = match pkt.type_ {
             P::Authenticate => atom.authenticate().await,
             P::ReqInfo => atom.req_info().await,
             P::Disconnect => atom.disconnect().await,
-            P::Connected | P::Error => {
+            P::CreateHttp => atom.create_http().await,
+            P::CreateTcp => atom.create_tcp().await,
+
+            P::Connected | P::Error | P::UpdateRights => {
                 Err(TcpFluxError::Critical(CriticalError::UnexpectedPacket))
             }
         };
@@ -47,16 +52,20 @@ where
             match e {
                 TcpFluxError::NonCritical(error) => {
                     tracing::error!("{} non-critical error: {error}", state.user);
-                    todo!();
+                    net.writer
+                        .write_error(convert_non_critical(error))
+                        .await?;
                 }
 
-                TcpFluxError::Critical(crit) => {
-                    tracing::error!("{} critical error: {crit}", state.user);
-                    todo!();
+                TcpFluxError::Critical(error) => {
+                    tracing::error!("{} critical error: {error}", state.user);
+                    net.writer
+                        .write_error(convert_critical(error))
+                        .await?;
                 }
 
                 _ => return Err(e),
-            }
+            };
         }
     }
 }

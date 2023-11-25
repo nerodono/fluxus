@@ -35,7 +35,7 @@ fn grab_port_from(listener: &TcpListener) -> eyre::Result<u16> {
 }
 
 pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
-    let listener = Listener::bind(config.protocols.tcp_flux.listen).await?;
+    let listener = Listener::bind(config.server.protocols.tcp_flux.listen).await?;
     let bound_port = grab_port_from(listener.inner_ref())?;
 
     tracing::info!("tcpflux is listening on :{bound_port}");

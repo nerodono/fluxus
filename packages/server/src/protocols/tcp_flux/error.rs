@@ -1,6 +1,9 @@
 use std::io;
 
-use tcp_flux::error::PktBaseReadError;
+use tcp_flux::{
+    error::PktBaseReadError,
+    types::error_code::ErrorCode,
+};
 use thiserror::Error;
 
 use crate::error::{
@@ -23,4 +26,22 @@ pub enum TcpFluxError {
 
     #[error("critical error: {0}")]
     Critical(#[from] CriticalError),
+}
+
+pub const fn convert_critical(error: CriticalError) -> ErrorCode {
+    use CriticalError as C;
+    use ErrorCode as E;
+
+    match error {
+        C::UnexpectedPacket => E::UnexpectedPacket,
+    }
+}
+
+pub const fn convert_non_critical(error: NonCriticalError) -> ErrorCode {
+    use ErrorCode as E;
+    use NonCriticalError as N;
+
+    match error {
+        N::FailedToAuthenticate => E::AuthenticationFailure,
+    }
 }

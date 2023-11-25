@@ -7,14 +7,16 @@ use color_eyre::eyre;
 
 use super::{
     logging::LoggingConfig,
-    protocols::ProtocolsConfig,
     runtime::RuntimeConfig,
+    security::SecurityConfig,
+    server::ServerConfig,
 };
 
 entity! {
     struct Config {
-        protocols: ProtocolsConfig,
+        server: ServerConfig,
         logging: LoggingConfig,
+        security: SecurityConfig,
 
         #[serde(default)]
         runtime: RuntimeConfig,

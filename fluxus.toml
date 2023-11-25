@@ -1,5 +1,9 @@
-[protocols]
-tcp_flux.listen = "0.0.0.0:28005"
+[server]
+name = "fluxus/1.0"
+protocols.tcp_flux.listen = "0.0.0.0:28005"
+
+[security]
+universal_password = "nero :3"
 
 [logging]
 level = "info"

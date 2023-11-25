@@ -27,6 +27,7 @@ impl Listener {
 
     pub async fn next_connection(&self) -> Result<AnyConnection, AcceptError> {
         let (mut socket, address) = self.handle.accept().await?;
+        socket.set_nodelay(true)?;
         let prot_int = socket.read_u8().await?;
 
         let conn_type = match prot_int {
