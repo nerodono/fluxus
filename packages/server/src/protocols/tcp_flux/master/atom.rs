@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use flux_common::Rights;
 use tcp_flux::{
     connection::{
         master::{
@@ -15,20 +16,21 @@ use tcp_flux::{
 };
 
 use super::connection::ConnectionState;
-use crate::{
-    error::NonCriticalError,
-    protocols::tcp_flux::{
-        error::{
-            TcpFluxError,
-            TcpFluxResult,
+use crate::protocols::tcp_flux::{
+    error::{
+        TcpFluxError,
+        TcpFluxResult,
+    },
+    layered::{
+        filters::enough_rights::{
+            enough_rights,
+            enough_rights_lazy,
         },
-        layered::{
-            filters::predicate::predicate,
-            handler::{
-                FilteredExt,
-                Handler,
-                HandlerF,
-            },
+        handler::{
+            CombineExt,
+            FilteredExt,
+            Handler,
+            HandlerF,
         },
     },
 };
@@ -53,8 +55,22 @@ pub struct Atom<'r, 'cfg, W> {
 impl<'r, 'cfg, W: RawWrite> Atom<'r, 'cfg, W> {
     #[cfg(feature = "tcp")]
     pub fn create_tcp(&mut self) -> impl HandlerF<CreateTcpRequest> + '_ {
-        Handler(|payload| async move { todo!() })
-            .filter(predicate(|| true, || NonCriticalError::AccessDenied))
+        Handler(|payload| async move { todo!() }).filter(
+            (
+                enough_rights(self.state.user.rights, Rights::CAN_CREATE_TCP_PROXY),
+                enough_rights_lazy::<CreateTcpRequest, _>(
+                    self.state.user.rights,
+                    |p| {
+                        if p.specific_port.is_some() {
+                            Rights::CAN_PICK_TCP_PORT
+                        } else {
+                            Rights::empty()
+                        }
+                    },
+                ),
+            )
+                .combined(),
+        )
     }
 
     #[cfg(feature = "http")]

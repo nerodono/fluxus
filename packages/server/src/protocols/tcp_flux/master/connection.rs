@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use flux_common::Rights;
 use tcp_flux::connection::master::{
     reader::common::{
         MasterReader,
@@ -29,7 +30,7 @@ pub struct ConnectionState<'cfg> {
 impl<'cfg> ConnectionState<'cfg> {
     pub fn new(config: &'cfg Arc<Config>, address: SocketAddr) -> Self {
         Self {
-            user: User::new(address),
+            user: User::new(Rights::empty(), address),
             config,
         }
     }

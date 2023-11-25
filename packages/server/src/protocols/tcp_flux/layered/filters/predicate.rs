@@ -17,12 +17,12 @@ pub fn predicate<F, Ef>(pred: F, error: Ef) -> Predicate<F, Ef> {
 
 impl<P, F, Ef, R> Filter<P> for Predicate<F, Ef>
 where
-    F: Send + FnOnce() -> bool,
+    F: Send + for<'a> FnOnce(&'a P) -> bool,
     Ef: Send + FnOnce() -> R,
     R: Into<TcpFluxError>,
 {
-    fn check(self, _: &P) -> TcpFluxResult<()> {
-        if (self.pred)() {
+    fn check(self, payload: &P) -> TcpFluxResult<()> {
+        if (self.pred)(payload) {
             Ok(())
         } else {
             Err((self.error)().into())

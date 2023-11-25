@@ -3,16 +3,18 @@ use std::{
     net::SocketAddr,
 };
 
+use flux_common::Rights;
 use owo_colors::OwoColorize;
 
 #[derive(Debug)]
 pub struct User {
+    pub rights: Rights,
     pub address: SocketAddr,
 }
 
 impl User {
-    pub fn new(address: SocketAddr) -> Self {
-        Self { address }
+    pub fn new(rights: Rights, address: SocketAddr) -> Self {
+        Self { address, rights }
     }
 }
 
