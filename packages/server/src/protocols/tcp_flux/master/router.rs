@@ -21,63 +21,42 @@ use crate::{
     },
 };
 
-pub struct Router<'cfg, R, W> {
-    sides: Sides<R, W>,
-    connection_state: ConnectionState<'cfg>,
-}
+pub async fn route_packets<R, W>(
+    mut net: Sides<R, W>,
+    mut state: ConnectionState<'_>,
+) -> TcpFluxResult<()>
+where
+    R: RawRead,
+    W: RawWrite,
+{
+    use PktType as P;
+    loop {
+        let (pkt, reader) = net.reader.next_packet().await?;
+        let mut atom = Atom::new(&mut state, reader, &mut net.writer);
 
-impl<'cfg, R: RawRead, W: RawWrite> Router<'cfg, R, W> {
-    pub async fn serve(mut self) -> TcpFluxResult<()> {
-        use PktType as P;
-        loop {
-            let net = &mut self.sides;
-
-            let (pkt, reader) = net.reader.next_packet().await?;
-            let mut atom =
-                Atom::new(&mut self.connection_state, reader, &mut net.writer);
-
-            let result = match pkt.type_ {
-                P::Authenticate => atom.authenticate().await,
-                P::ReqInfo => atom.req_info().await,
-                P::Disconnect => atom.disconnect().await,
-                P::Connected | P::Error => {
-                    Err(TcpFluxError::Critical(CriticalError::UnexpectedPacket))
-                }
-            };
-
-            if let Err(e) = result {
-                match e {
-                    TcpFluxError::NonCritical(error) => {
-                        tracing::error!(
-                            "{} non-critical error: {error}",
-                            self.connection_state.user
-                        );
-                        todo!();
-                    }
-
-                    TcpFluxError::Critical(crit) => {
-                        tracing::error!(
-                            "{} critical error: {crit}",
-                            self.connection_state.user
-                        );
-                        todo!();
-                    }
-
-                    _ => return Err(e),
-                }
+        let result = match pkt.type_ {
+            P::Authenticate => atom.authenticate().await,
+            P::ReqInfo => atom.req_info().await,
+            P::Disconnect => atom.disconnect().await,
+            P::Connected | P::Error => {
+                Err(TcpFluxError::Critical(CriticalError::UnexpectedPacket))
             }
-        }
-    }
-}
+        };
 
-impl<'cfg, R, W> Router<'cfg, R, W> {
-    pub const fn new(
-        connection_state: ConnectionState<'cfg>,
-        sides: Sides<R, W>,
-    ) -> Self {
-        Self {
-            connection_state,
-            sides,
+        if let Err(e) = result {
+            match e {
+                TcpFluxError::NonCritical(error) => {
+                    tracing::error!("{} non-critical error: {error}", state.user);
+                    todo!();
+                }
+
+                TcpFluxError::Critical(crit) => {
+                    tracing::error!("{} critical error: {crit}", state.user);
+                    todo!();
+                }
+
+                _ => return Err(e),
+            }
         }
     }
 }

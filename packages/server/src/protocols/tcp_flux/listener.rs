@@ -23,7 +23,7 @@ use crate::{
             ConnectionState,
             Sides,
         },
-        router::Router,
+        router::route_packets,
     },
 };
 
@@ -52,14 +52,13 @@ pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
             ConnectionType::Master => {
                 tracing::info!("{} connected as the master", connection.address);
                 let state = ConnectionState::new(&config, connection.address);
-                Router::new(
-                    state,
+                route_packets(
                     Sides {
                         reader: MasterReader::new(reader),
                         writer: MasterServerWriter::new(writer),
                     },
+                    state,
                 )
-                .serve()
                 .await
             }
         };
