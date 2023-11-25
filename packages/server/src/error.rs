@@ -6,6 +6,9 @@ use thiserror::Error;
 pub enum NonCriticalError {
     #[error("failed to authenticate")]
     FailedToAuthenticate,
+
+    #[error("access denied")]
+    AccessDenied,
 }
 
 #[derive(Error)]

@@ -43,5 +43,6 @@ pub const fn convert_non_critical(error: NonCriticalError) -> ErrorCode {
 
     match error {
         N::FailedToAuthenticate => E::AuthenticationFailure,
+        N::AccessDenied => E::AccessDenied,
     }
 }

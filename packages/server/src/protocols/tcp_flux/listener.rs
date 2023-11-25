@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use color_eyre::eyre::{
-    self,
-    Context,
-};
+use color_eyre::eyre;
 use tcp_flux::{
     connection::{
         any::ConnectionType,
@@ -14,7 +11,6 @@ use tcp_flux::{
     },
     listener::Listener,
 };
-use tokio::net::TcpListener;
 
 use crate::{
     config::root::Config,
@@ -27,18 +23,11 @@ use crate::{
     },
 };
 
-fn grab_port_from(listener: &TcpListener) -> eyre::Result<u16> {
-    listener
-        .local_addr()
-        .wrap_err("failed to fetch bound port")
-        .map(|a| a.port())
-}
-
 pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
     let listener = Listener::bind(config.server.protocols.tcp_flux.listen).await?;
-    let bound_port = grab_port_from(listener.inner_ref())?;
+    let bound_address = listener.inner_ref().local_addr()?;
 
-    tracing::info!("tcpflux is listening on :{bound_port}");
+    tracing::info!("tcpflux is listening on {bound_address}");
     loop {
         let connection = listener.next_connection().await?;
         let (reader, writer) = connection.socket.into_split();

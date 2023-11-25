@@ -3,25 +3,34 @@ use std::borrow::Cow;
 use tcp_flux::{
     connection::{
         master::{
-            payloads::info::InfoPayload,
-            reader::server::MasterServerReader,
+            payloads::{
+                create_tcp_request::CreateTcpRequest,
+                info::InfoPayload,
+            },
             writer::server::MasterServerWriter,
         },
-        traits::{
-            RawRead,
-            RawWrite,
-        },
+        traits::RawWrite,
     },
-    types::{
-        error_code::ErrorCode,
-        pkt_base::PktFlags,
-    },
+    types::error_code::ErrorCode,
 };
 
 use super::connection::ConnectionState;
-use crate::protocols::tcp_flux::error::{
-    TcpFluxError,
-    TcpFluxResult,
+use crate::{
+    error::NonCriticalError,
+    protocols::tcp_flux::{
+        error::{
+            TcpFluxError,
+            TcpFluxResult,
+        },
+        layered::{
+            filters::predicate::predicate,
+            handler::{
+                FilteredExt,
+                Handler,
+                HandlerF,
+            },
+        },
+    },
 };
 
 /// Indivisible scope of connection: actual packet handling
@@ -35,23 +44,17 @@ use crate::protocols::tcp_flux::error::{
 /// ```
 /// * Connection here is an actual connection, not the
 ///   **state of connection**
-pub struct Atom<'r, 'cfg, R, W> {
+pub struct Atom<'r, 'cfg, W> {
     state: &'r mut ConnectionState<'cfg>,
-
-    flags: PktFlags,
     writer: &'r mut MasterServerWriter<W>,
-    reader: MasterServerReader<'r, R>,
 }
 
 // Server creation
-impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
+impl<'r, 'cfg, W: RawWrite> Atom<'r, 'cfg, W> {
     #[cfg(feature = "tcp")]
-    pub async fn create_tcp(&mut self) -> TcpFluxResult<()> {
-        let request = self
-            .reader
-            .read_create_tcp_request(self.flags)
-            .await?;
-        todo!()
+    pub fn create_tcp(&mut self) -> impl HandlerF<CreateTcpRequest> + '_ {
+        Handler(|payload| async move { todo!() })
+            .filter(predicate(|| true, || NonCriticalError::AccessDenied))
     }
 
     #[cfg(feature = "http")]
@@ -60,7 +63,7 @@ impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
     }
 }
 
-impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
+impl<'r, 'cfg, W: RawWrite> Atom<'r, 'cfg, W> {
     #[cfg(not(feature = "tcp"))]
     pub async fn create_tcp(&mut self) -> TcpFluxResult<()> {
         self.opted_out("TCP proxy").await
@@ -85,7 +88,7 @@ impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
 }
 
 // Service functions (information retrieval, for example)
-impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
+impl<'r, 'cfg, W: RawWrite> Atom<'r, 'cfg, W> {
     /// Try authenticate the user
     ///
     /// # Errors
@@ -109,18 +112,11 @@ impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
     }
 }
 
-impl<'r, 'cfg, R, W> Atom<'r, 'cfg, R, W> {
+impl<'r, 'cfg, W> Atom<'r, 'cfg, W> {
     pub fn new(
         state: &'r mut ConnectionState<'cfg>,
-        reader: MasterServerReader<'r, R>,
         writer: &'r mut MasterServerWriter<W>,
-        flags: PktFlags,
     ) -> Self {
-        Self {
-            state,
-            reader,
-            writer,
-            flags,
-        }
+        Self { state, writer }
     }
 }

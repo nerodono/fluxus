@@ -19,6 +19,7 @@ use crate::{
             TcpFluxError,
             TcpFluxResult,
         },
+        layered::handler::HandlerF,
         master::atom::Atom,
     },
 };
@@ -33,15 +34,19 @@ where
 {
     use PktType as P;
     loop {
-        let (pkt, reader) = net.reader.next_packet().await?;
-        let mut atom = Atom::new(&mut state, reader, &mut net.writer, pkt.flags);
+        let (pkt, mut reader) = net.reader.next_packet().await?;
+        let mut atom = Atom::new(&mut state, &mut net.writer);
 
         let result = match pkt.type_ {
             P::Authenticate => atom.authenticate().await,
             P::ReqInfo => atom.req_info().await,
             P::Disconnect => atom.disconnect().await,
             P::CreateHttp => atom.create_http().await,
-            P::CreateTcp => atom.create_tcp().await,
+            P::CreateTcp => {
+                atom.create_tcp()
+                    .run(reader.read_create_tcp_request(pkt.flags).await?)
+                    .await
+            }
 
             P::Connected | P::Error | P::UpdateRights => {
                 Err(TcpFluxError::Critical(CriticalError::UnexpectedPacket))

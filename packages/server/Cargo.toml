@@ -30,6 +30,8 @@ workspace = true
 optional = true
 
 [dependencies]
+flux-common.workspace = true
+
 cfg-if = "1.0.0"
 envy = "0.4.2"
 num_cpus = "1.16.0"
