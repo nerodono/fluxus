@@ -23,7 +23,15 @@ tcpflux = ["dep:tcp-flux"]
 
 [dependencies.tokio]
 workspace = true
-features = ["rt", "rt-multi-thread", "net", "sync", "io-util", "macros"]
+features = [
+    "rt",
+    "rt-multi-thread",
+    "net",
+    "sync",
+    "io-util",
+    "parking_lot",
+    "macros",
+]
 
 [dependencies.tcp-flux]
 workspace = true
@@ -47,3 +55,4 @@ owo-colors.workspace = true
 futures-util = { version = "0.3.29", default-features = false, features = [
     "std",
 ] }
+dashmap = "5.5.3"

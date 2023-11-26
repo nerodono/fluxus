@@ -10,15 +10,22 @@ use boot::{
     },
 };
 use color_eyre::eyre;
-use fluxus::config::root::Config;
+use fluxus::{
+    config::root::Config,
+    proxies::queues::Queues,
+};
 
 async fn entrypoint(config: Config) -> eyre::Result<()> {
     use fluxus::protocols as prot;
 
     let config = Arc::new(config);
+    let queues = Queues::default();
     let futures = [
         #[cfg(feature = "tcpflux")]
-        run_fut("tcpflux", prot::tcp_flux::run(config.clone())),
+        run_fut(
+            "tcpflux",
+            prot::tcp_flux::run(queues.clone(), config.clone()),
+        ),
     ];
 
     futures_util::future::join_all(futures).await;

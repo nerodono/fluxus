@@ -19,4 +19,10 @@ pub enum CriticalError {
 
     #[error("master channel closed (this is unexpected)")]
     ChannelClosed,
+
+    #[error("the proxy was shut")]
+    ServerWasShut,
+
+    #[error("failed to bind address")]
+    FailedToBind,
 }

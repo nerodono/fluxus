@@ -45,6 +45,15 @@ pub struct Atom<'r, 'cfg, R, W> {
 impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
     #[cfg(feature = "tcp")]
     pub async fn create_tcp(mut self) -> TcpFluxResult<()> {
+        use std::{
+            net::SocketAddr,
+            num::NonZeroU16,
+        };
+
+        use tokio::net::TcpListener;
+
+        use crate::error::CriticalError;
+
         let request = self
             .reader
             .read_create_tcp_request(self.flags)
@@ -59,7 +68,21 @@ impl<'r, 'cfg, R: RawRead, W: RawWrite> Atom<'r, 'cfg, R, W> {
                 Rights::empty()
             })?;
 
-        Ok(())
+        let port = request.specific_port.map_or(0, NonZeroU16::get);
+        // TODO: make bind address configurable
+        let listener = TcpListener::bind(("0.0.0.0", port))
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    "{} failed to bind 0.0.0.0:{port}: {e}",
+                    self.state.user
+                );
+                CriticalError::FailedToBind
+            })?;
+        let token = self
+            .state
+            .create_server(|addr, q| q.tcp.create_queue(addr))?;
+        todo!()
     }
 
     #[cfg(feature = "http")]

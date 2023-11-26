@@ -35,6 +35,8 @@ pub const fn convert_critical(error: CriticalError) -> ErrorCode {
     match error {
         C::UnexpectedPacket => E::UnexpectedPacket,
         C::ChannelClosed => E::InternalError,
+        C::ServerWasShut => E::Shutdown,
+        C::FailedToBind => E::InternalError,
     }
 }
 

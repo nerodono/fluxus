@@ -16,9 +16,10 @@ use super::master::network::connection::ConnectionState;
 use crate::{
     config::root::Config,
     protocols::tcp_flux::master::handler::handle_connection,
+    proxies::queues::Queues,
 };
 
-pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
+pub async fn run(queues: Queues, config: Arc<Config>) -> eyre::Result<()> {
     let listener = Listener::bind(config.server.protocols.tcp_flux.listen).await?;
     let bound_address = listener.inner_ref().local_addr()?;
 
@@ -35,7 +36,8 @@ pub async fn run(config: Arc<Config>) -> eyre::Result<()> {
 
             ConnectionType::Master => {
                 tracing::info!("{} connected as the master", connection.address);
-                let state = ConnectionState::new(&config, connection.address);
+                let state =
+                    ConnectionState::new(&queues, &config, connection.address);
                 handle_connection(
                     MasterReader::new(reader),
                     MasterServerWriter::new(writer),

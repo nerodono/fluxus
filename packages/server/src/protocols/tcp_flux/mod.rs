@@ -4,6 +4,6 @@ mod listener;
 mod flow;
 mod master;
 
-mod events;
+pub mod events;
 
 pub use listener::run;

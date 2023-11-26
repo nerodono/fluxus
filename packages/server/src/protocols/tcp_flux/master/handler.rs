@@ -29,10 +29,10 @@ use crate::{
     },
 };
 
-pub async fn handle_connection<'cfg, R, W>(
+pub async fn handle_connection<R, W>(
     mut reader: MasterReader<R, Server>,
     mut writer: MasterServerWriter<W>,
-    mut state: ConnectionState<'cfg>,
+    mut state: ConnectionState<'_>,
 ) -> TcpFluxResult<()>
 where
     R: RawRead,

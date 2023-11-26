@@ -1,6 +1,13 @@
-use std::num::NonZeroU16;
+use super::flow::FlowHandshake;
+
+#[derive(Debug)]
+pub enum FlowMasterCommand {
+    Forward { buf: Vec<u8> },
+    Close,
+}
 
 #[derive(Debug)]
 pub enum MasterEvent {
-    BoundTcpPort { port: Option<NonZeroU16> },
+    Connected { handshake: FlowHandshake },
+    ShutdownServer,
 }
