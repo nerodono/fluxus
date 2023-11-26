@@ -19,6 +19,12 @@ pub struct MasterServerWriter<W> {
 }
 
 impl<W: RawWrite> MasterServerWriter<W> {
+    pub async fn write_connected(&mut self) -> io::Result<()> {
+        self.writer
+            .write_u8(PktBase::simple(PktType::Connected).encode())
+            .await
+    }
+
     pub async fn write_error(&mut self, error: ErrorCode) -> io::Result<()> {
         self.writer
             .write_all(&[PktBase::simple(PktType::Error).encode(), error as u8])

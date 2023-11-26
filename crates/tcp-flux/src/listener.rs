@@ -32,7 +32,7 @@ impl Listener {
 
         let conn_type = match prot_int {
             ConnectionType::FLOW_INT => {
-                let flow_id = socket.read_u64_le().await?;
+                let flow_id = socket.read_u16_le().await?;
                 ConnectionType::Flow { id: flow_id }
             }
             ConnectionType::MASTER_INT => ConnectionType::Master,

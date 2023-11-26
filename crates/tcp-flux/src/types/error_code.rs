@@ -18,4 +18,7 @@ pub enum ErrorCode {
 
     #[error("internal server error")]
     InternalError = 0x04,
+
+    #[error("proxy server was shut")]
+    Shutdown = 0x05,
 }

@@ -4,7 +4,7 @@ use tokio::net::TcpStream;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectionType {
-    Flow { id: u64 },
+    Flow { id: u16 },
     Master,
 }
 
