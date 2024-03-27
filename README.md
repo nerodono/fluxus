@@ -11,7 +11,7 @@ Fluxus is the open source network tunnel server.
 
 ## Supported protocols
 
-- [ ] **HTTP** - `high priority` (in progress)
+- [x] **HTTP** - `high priority` (Done, but has some throughput-related issues, will be worked on)
 - [x] **TCP**  - `high priority`
 - [ ] **UDP**  - `low priority`
 
